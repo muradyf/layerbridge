@@ -181,3 +181,5 @@ server/dist/
 .vscode/
 
 .claude/
+# Figma plugin copied into the npm package by `bun run bundle-plugin`
+server/plugin/
