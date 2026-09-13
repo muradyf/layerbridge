@@ -694,6 +694,32 @@ export const toolInputSchemas = {
     fileKey: fileKeyField,
   }),
 
+  export_tokens: z.object({
+    outputPath: z
+      .string()
+      .min(1)
+      .describe("File to write (e.g. tokens.json or tokens.css); with format 'both' the extension is replaced"),
+    format: z.enum(["json", "css", "both"]).optional().describe("W3C design-tokens JSON (default), CSS custom properties, or both"),
+    overwrite: overwriteField,
+    fileKey: fileKeyField,
+  }),
+
+  export_frames_to_pdf: z.object({
+    nodeIds: z.array(createFigmaNodeIdSchema()).min(1).describe("Frames in page order"),
+    outputPath: z.string().min(1).describe("PDF file to write"),
+    title: z.string().optional().describe("PDF document title"),
+    overwrite: overwriteField,
+    timeoutMs: exportTimeoutField,
+    fileKey: fileKeyField,
+  }),
+
+  export_image_fills: z.object({
+    nodeId: createFigmaNodeIdSchema().describe("Layer whose subtree's image fills are saved"),
+    outputDir: z.string().min(1).describe("Directory to write the original images into"),
+    overwrite: overwriteField,
+    fileKey: fileKeyField,
+  }),
+
   export_assets: z.object({
     rootId: createFigmaNodeIdSchema()
       .optional()
@@ -1074,6 +1100,9 @@ const rpcToArgs: Record<
   get_nodes: (nodeIds, params) => ({ nodeIds, ...params }),
   scan_nodes: (_nodeIds, params) => ({ ...params }),
   export_assets: (_nodeIds, params) => ({ ...params }),
+  export_tokens: (_nodeIds, params) => ({ ...params }),
+  export_frames_to_pdf: (_nodeIds, params) => ({ ...params }),
+  export_image_fills: (_nodeIds, params) => ({ ...params }),
   get_selection: (_nodeIds, params) => ({ ...params }),
   get_node: (nodeIds, params) => ({ ...params, nodeId: nodeIds?.[0] }),
   get_styles: (_nodeIds, params) => ({ ...params }),

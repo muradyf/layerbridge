@@ -23,7 +23,13 @@ export interface ServerSender {
   ): Promise<BridgeResponse>;
 }
 
-export const SERVER_SIDE_TOOLS = new Set(["save_screenshots", "export_assets"]);
+export const SERVER_SIDE_TOOLS = new Set([
+  "save_screenshots",
+  "export_assets",
+  "export_tokens",
+  "export_frames_to_pdf",
+  "export_image_fills",
+]);
 
 /* ── output paths ─────────────────────────────────────────────────────────── */
 
@@ -440,6 +446,188 @@ export async function executeExportAssets(sender: ServerSender, params: Record<s
   };
 }
 
+/* ── export_tokens ────────────────────────────────────────────────────────── */
+
+interface TokenData {
+  fileName: string;
+  collections: { name: string; modes: string[] }[];
+  variables: { name: string; collection: string; type: string; description?: string; values: Record<string, unknown> }[];
+  paintStyles: { name: string; paints: { type: string; color?: string; opacity?: number }[] }[];
+  textStyles: { name: string; fontFamily: string; fontStyle: string; fontSize: number; lineHeight: unknown; letterSpacing: unknown }[];
+  effectStyles: { name: string; effects: Record<string, unknown>[] }[];
+}
+
+const tokenPath = (name: string) => name.split("/").map((s) => s.trim()).filter(Boolean);
+const cssName = (parts: string[]) =>
+  "--" + parts.join("-").toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+const W3C_TYPE: Record<string, string> = { COLOR: "color", FLOAT: "number", STRING: "string", BOOLEAN: "boolean" };
+
+const setDeep = (obj: Record<string, unknown>, parts: string[], value: unknown) => {
+  let cur = obj;
+  for (const part of parts.slice(0, -1)) cur = (cur[part] ??= {}) as Record<string, unknown>;
+  cur[parts[parts.length - 1]] = value;
+};
+
+export function tokensToJson(data: TokenData): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  const ref = (value: unknown, _collection: string) => {
+    if (value && typeof value === "object" && "alias" in (value as object)) {
+      const target = data.variables.find((v) => (v as unknown as { id?: string }).id === (value as { alias: string }).alias);
+      return target ? `{${[target.collection, ...tokenPath(target.name)].join(".")}}` : value;
+    }
+    return value;
+  };
+  for (const v of data.variables) {
+    const col = data.collections.find((c) => c.name === v.collection);
+    const modes = col?.modes ?? Object.keys(v.values);
+    const $value = modes.length === 1 ? ref(v.values[modes[0]], v.collection) : undefined;
+    const token: Record<string, unknown> = { $type: W3C_TYPE[v.type] ?? "string" };
+    if ($value !== undefined) token.$value = $value;
+    else {
+      token.$value = ref(v.values[modes[0]], v.collection);
+      token.$extensions = { modes: Object.fromEntries(modes.map((m) => [m, ref(v.values[m], v.collection)])) };
+    }
+    if (v.description) token.$description = v.description;
+    setDeep(out, [v.collection, ...tokenPath(v.name)], token);
+  }
+  for (const s of data.paintStyles) {
+    const solid = s.paints.find((p) => p.type === "SOLID");
+    if (solid?.color) setDeep(out, ["styles", "color", ...tokenPath(s.name)], { $type: "color", $value: solid.color });
+  }
+  for (const s of data.textStyles) {
+    setDeep(out, ["styles", "typography", ...tokenPath(s.name)], {
+      $type: "typography",
+      $value: { fontFamily: s.fontFamily, fontWeight: s.fontStyle, fontSize: `${s.fontSize}px`, lineHeight: s.lineHeight, letterSpacing: s.letterSpacing },
+    });
+  }
+  for (const s of data.effectStyles) {
+    setDeep(out, ["styles", "shadow", ...tokenPath(s.name)], { $type: "shadow", $value: s.effects });
+  }
+  return out;
+}
+
+export function tokensToCss(data: TokenData): string {
+  const lines: string[] = [];
+  const modesByCollection = new Map(data.collections.map((c) => [c.name, c.modes]));
+  const varRef = (value: unknown): string => {
+    if (value && typeof value === "object" && "alias" in (value as object)) {
+      const target = data.variables.find((v) => (v as unknown as { id?: string }).id === (value as { alias: string }).alias);
+      return target ? `var(${cssName([target.collection, ...tokenPath(target.name)])})` : "initial";
+    }
+    if (typeof value === "number") return `${value}`;
+    if (typeof value === "string" && !value.startsWith("#")) return JSON.stringify(value);
+    return String(value);
+  };
+  const blocks = new Map<string, string[]>();
+  for (const v of data.variables) {
+    const modes = modesByCollection.get(v.collection) ?? Object.keys(v.values);
+    modes.forEach((mode, i) => {
+      const selector = i === 0 ? ":root" : `[data-theme="${mode.toLowerCase().replace(/\s+/g, "-")}"]`;
+      const block = blocks.get(selector) ?? [];
+      block.push(`  ${cssName([v.collection, ...tokenPath(v.name)])}: ${varRef(v.values[mode])};`);
+      blocks.set(selector, block);
+    });
+  }
+  const root = blocks.get(":root") ?? [];
+  for (const s of data.paintStyles) {
+    const solid = s.paints.find((p) => p.type === "SOLID");
+    if (solid?.color) root.push(`  ${cssName(["style", ...tokenPath(s.name)])}: ${solid.color};`);
+  }
+  blocks.set(":root", root);
+  lines.push(`/* Design tokens exported from "${data.fileName}". First mode of each collection is :root. */`);
+  for (const [selector, body] of blocks) lines.push(`${selector} {`, ...body, "}", "");
+  return lines.join("\n");
+}
+
+export async function executeExportTokens(sender: ServerSender, params: Record<string, unknown>) {
+  const resp = await sender.sendWithParams("get_tokens", undefined, undefined, 120_000);
+  if (resp.error) throw new Error(resp.error);
+  const data = resp.data as TokenData;
+  const format = (params.format as string | undefined) ?? "json";
+  const overwrite = params.overwrite === true;
+  const written: string[] = [];
+  const target = params.outputPath as string;
+  if (format === "json" || format === "both") {
+    const file = resolveOutputPath(format === "both" ? target.replace(/\.(json|css)$/i, "") + ".json" : target);
+    if ((await writeBytes(Buffer.from(JSON.stringify(tokensToJson(data), null, 2)), file, overwrite)) === "exists") {
+      throw new Error(`File already exists: ${file} (pass overwrite: true)`);
+    }
+    written.push(file);
+  }
+  if (format === "css" || format === "both") {
+    const file = resolveOutputPath(format === "both" ? target.replace(/\.(json|css)$/i, "") + ".css" : target);
+    if ((await writeBytes(Buffer.from(tokensToCss(data)), file, overwrite)) === "exists") {
+      throw new Error(`File already exists: ${file} (pass overwrite: true)`);
+    }
+    written.push(file);
+  }
+  return {
+    written,
+    variables: data.variables.length,
+    collections: data.collections.length,
+    paintStyles: data.paintStyles.length,
+    textStyles: data.textStyles.length,
+    effectStyles: data.effectStyles.length,
+  };
+}
+
+/* ── export_frames_to_pdf ─────────────────────────────────────────────────── */
+
+export async function executeExportFramesToPdf(sender: ServerSender, params: Record<string, unknown>) {
+  const { PDFDocument } = await import("pdf-lib");
+  const ids = (params.nodeIds as string[] | undefined) ?? [];
+  if (ids.length === 0) throw new Error("nodeIds is required");
+  const outputPath = resolveOutputPath(params.outputPath as string);
+  const merged = await PDFDocument.create();
+  const pages: { nodeId: string; nodeName?: string; error?: string }[] = [];
+  for (const id of ids) {
+    const resp = await sender.sendWithParams("export_node_pdf", undefined, { nodeId: id, timeoutMs: params.timeoutMs }, 120_000);
+    if (resp.error) {
+      pages.push({ nodeId: id, error: resp.error });
+      continue;
+    }
+    const { base64, nodeName } = resp.data as { base64: string; nodeName: string };
+    const doc = await PDFDocument.load(Buffer.from(base64, "base64"));
+    const copied = await merged.copyPages(doc, doc.getPageIndices());
+    copied.forEach((page) => merged.addPage(page));
+    pages.push({ nodeId: id, nodeName });
+  }
+  if (merged.getPageCount() === 0) throw new Error(`No page exported: ${pages.map((p) => p.error).join("; ")}`);
+  if (typeof params.title === "string") merged.setTitle(params.title);
+  const bytes = Buffer.from(await merged.save());
+  if ((await writeBytes(bytes, outputPath, params.overwrite === true)) === "exists") {
+    throw new Error(`File already exists: ${outputPath} (pass overwrite: true)`);
+  }
+  return { outputPath, pages: merged.getPageCount(), bytesWritten: bytes.length, results: pages };
+}
+
+/* ── export_image_fills ───────────────────────────────────────────────────── */
+
+const imageExtension = (b: Buffer) =>
+  b[0] === 0x89 && b[1] === 0x50 ? "png"
+  : b[0] === 0xff && b[1] === 0xd8 ? "jpg"
+  : b.slice(0, 3).toString("ascii") === "GIF" ? "gif"
+  : b.slice(8, 12).toString("ascii") === "WEBP" ? "webp"
+  : "bin";
+
+export async function executeExportImageFills(sender: ServerSender, params: Record<string, unknown>) {
+  const resp = await sender.sendWithParams("get_image_fills", undefined, { nodeId: params.nodeId }, 120_000);
+  if (resp.error) throw new Error(resp.error);
+  const { images } = resp.data as { images: { hash: string; base64: string; nodes: { id: string; name: string }[] }[] };
+  const outputDir = resolveOutputPath(params.outputDir as string);
+  await mkdir(outputDir, { recursive: true });
+  const entries: Record<string, unknown>[] = [];
+  for (const img of images) {
+    const bytes = Buffer.from(img.base64, "base64");
+    const file = `${img.hash}.${imageExtension(bytes)}`;
+    const status = await writeBytes(bytes, path.join(outputDir, file), params.overwrite === true);
+    entries.push({ hash: img.hash, file, bytes: bytes.length, nodes: img.nodes, ...(status === "exists" ? { note: "existed" } : {}) });
+  }
+  const manifestPath = path.join(outputDir, "images.json");
+  await writeFile(manifestPath, JSON.stringify({ images: entries }, null, 2));
+  return { outputDir, manifestPath, images: entries.length };
+}
+
 export async function runServerSideTool(
   tool: string,
   sender: ServerSender,
@@ -450,6 +638,12 @@ export async function runServerSideTool(
       return executeSaveScreenshots(sender, params);
     case "export_assets":
       return executeExportAssets(sender, params);
+    case "export_tokens":
+      return executeExportTokens(sender, params);
+    case "export_frames_to_pdf":
+      return executeExportFramesToPdf(sender, params);
+    case "export_image_fills":
+      return executeExportImageFills(sender, params);
     default:
       throw new Error(`${tool} is not a server-side tool`);
   }

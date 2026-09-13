@@ -23,6 +23,7 @@
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.26.0",
+    "pdf-lib": "1.17.1",
     "ws": "^8.18.0",
     "zod": "^3.24.0"
   },

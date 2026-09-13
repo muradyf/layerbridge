@@ -2,6 +2,7 @@ import http from "node:http";
 import type { Duplex } from "node:stream";
 import { Bridge } from "./bridge.js";
 import { validateRpc } from "./schema.js";
+import { validateFeatureRpc } from "./features.js";
 import { SERVER_SIDE_TOOLS, runServerSideTool } from "./assets.js";
 import type { RPCRequest, RPCResponse } from "./types.js";
 import { VERSION } from "./version.js";
@@ -86,7 +87,11 @@ export class Leader {
           return;
         }
 
-        const validation = validateRpc(rpcReq.tool, rpcReq.nodeIds, rpcReq.params);
+        // Feature tools keep their ids inside params; the legacy validator
+        // would strip a `nodeId` param, so they validate separately.
+        const validation =
+          validateFeatureRpc(rpcReq.tool, rpcReq.params) ??
+          validateRpc(rpcReq.tool, rpcReq.nodeIds, rpcReq.params);
         if (validation.error) {
           this.sendJSON(res, 400, { error: validation.error });
           return;

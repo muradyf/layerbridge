@@ -33,6 +33,7 @@ import {
 } from "./schema.js";
 import type { BridgeResponse } from "./types.js";
 import { runServerSideTool, type ServerSender } from "./assets.js";
+import { registerFeatureTools } from "./features.js";
 import { VERSION } from "./version.js";
 import { Follower } from "./follower.js";
 
@@ -52,6 +53,8 @@ type ToolResult = {
  * @param port - The port used for follower-to-leader HTTP calls.
  */
 export function registerTools(server: McpServer, node: Node, port: number): void {
+  registerFeatureTools(server, node);
+
   server.tool(
     "list_files",
     "List all currently connected Figma files. Returns fileKey and fileName for each. Use the fileKey to target a specific file in other tools.",
@@ -570,6 +573,27 @@ export function registerTools(server: McpServer, node: Node, port: number): void
     "Export every matching layer in a frame to a folder, e.g. all icon instances as SVG, exactly as Figma draws them on that screen, overrides included. Scans rootId with the filter (types, namePattern, size, stopAtMatch, default true) or takes explicit nodeIds; skips hidden layers; writes identical exports once; writes manifest.json with each node's bounds relative to rootId and its file. Stops early and says why if exports stall.",
     toolInputSchemas.export_assets.shape,
     serverSideTool("export_assets")
+  );
+
+  server.tool(
+    "export_tokens",
+    "Export the file's local variables (every mode) and colour/text/effect styles as W3C design-tokens JSON, CSS custom properties, or both, written to disk.",
+    toolInputSchemas.export_tokens.shape,
+    serverSideTool("export_tokens")
+  );
+
+  server.tool(
+    "export_frames_to_pdf",
+    "Export frames as one multi-page PDF, one page per frame in the order given, written to disk.",
+    toolInputSchemas.export_frames_to_pdf.shape,
+    serverSideTool("export_frames_to_pdf")
+  );
+
+  server.tool(
+    "export_image_fills",
+    "Save the original images behind image fills in a subtree — the uploaded bitmaps, not a render — plus images.json listing which layers use each.",
+    toolInputSchemas.export_image_fills.shape,
+    serverSideTool("export_image_fills")
   );
 
   server.tool(
