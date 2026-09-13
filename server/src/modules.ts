@@ -5,7 +5,10 @@
  * Registration with MCP, RPC validation and scripts/rpc.mjs all read these.
  */
 import type { PluginToolDef, ServerToolDef } from "./common.js";
+import { BOARDS_PLUGIN_TOOLS } from "./boards.js";
 
-export const MODULE_PLUGIN_TOOLS: Record<string, PluginToolDef> = {};
+export const MODULE_PLUGIN_TOOLS: Record<string, PluginToolDef> = {
+  ...BOARDS_PLUGIN_TOOLS,
+};
 
 export const MODULE_SERVER_TOOLS: Record<string, ServerToolDef> = {};
