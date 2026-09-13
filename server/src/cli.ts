@@ -142,7 +142,8 @@ async function setup(flags: Flags, port: number, io: Io): Promise<number> {
   io.out("1. Add the plugin to Figma (once)");
   const bundled = bundledPluginDir();
   if (!bundled) {
-    io.out("   The plugin is not bundled with this copy of the server. Build it from the repo (plugin/) and import plugin/manifest.json.");
+    io.out("   This copy of the server has no built plugin. In the repo run `cd plugin && bun install && bun run build`, then:");
+    io.out("   Figma desktop → open a design file → Plugins → Development → Import plugin from manifest… → plugin/manifest.json");
   } else if (flags.noCopy) {
     io.out(`   Figma desktop → open a design file → Plugins → Development → Import plugin from manifest… →\n   ${path.join(bundled, "manifest.json")}`);
     io.out("   (This path changes when npx updates the package; setup without --no-copy keeps a stable copy.)");
