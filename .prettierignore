@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+# Lockfiles
+bun.lock
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Build output
+dist/
+build/
+
+# Logs
+*.log
