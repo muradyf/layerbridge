@@ -6,21 +6,22 @@ import { Node } from "./node.js";
 import { Election } from "./election.js";
 import { registerTools } from "./tools.js";
 import { VERSION } from "./version.js";
+import { ALLOWED_PORTS } from "./auth.js";
 
-// 1995, not upstream's 1994: 1994 is also figma-mcp-go's port, and sharing it
-// made the two servers' leader elections and plugins collide. The plugin must
-// be built with the matching VITE_FIGMA_BRIDGE_WS URL (which must also be
-// listed in the plugin manifest's networkAccess.allowedDomains).
+// 1995, not upstream's 1994: 1994 is also figma-mcp-go's and gethopp's port,
+// and sharing it made the servers' leader elections and plugins collide.
+// Figma only lets the plugin reach ports its manifest lists, so the choice is
+// 1995–1999; the plugin panel's Port setting must match.
 export const DEFAULT_PORT = 1995;
 
 function resolvePort(): number {
   const raw = process.env.FIGMA_BRIDGE_PORT;
   if (raw === undefined) return DEFAULT_PORT;
   const port = Number(raw.trim());
-  if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    // An explicitly set but invalid value must not silently join the stock
-    // bridge on 1994 — fail loudly instead.
-    console.error(`Invalid FIGMA_BRIDGE_PORT "${raw}" — expected an integer between 1 and 65535`);
+  if (!Number.isInteger(port) || !ALLOWED_PORTS.includes(port)) {
+    // An explicitly set but unusable value must fail loudly: the plugin could
+    // never connect, and the error would otherwise look like a Figma problem.
+    console.error(`Invalid FIGMA_BRIDGE_PORT "${raw}" — the plugin can only reach ${ALLOWED_PORTS.join(", ")}`);
     process.exit(1);
   }
   return port;

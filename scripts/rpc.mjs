@@ -22,10 +22,14 @@ const port = process.env.FIGMA_BRIDGE_PORT ?? "1995";
 const params = JSON.parse(json);
 const { nodeId, nodeIds, fileKey, idleMs, ...rest } = params;
 
+const here = path.dirname(fileURLToPath(import.meta.url));
+const { readToken, TOKEN_HEADER } = await import(pathToFileURL(path.join(here, "..", "server", "dist", "auth.js")).href);
+
 const call = async (body) => {
+  const token = readToken(Number(port));
   const res = await fetch(`http://127.0.0.1:${port}/rpc`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(token ? { [TOKEN_HEADER]: token } : {}) },
     body: JSON.stringify(body),
   }).catch((err) => {
     console.error(`No bridge leader on 127.0.0.1:${port} (${err.cause?.code ?? err.message})`);
@@ -35,9 +39,10 @@ const call = async (body) => {
 };
 
 let out;
-const LOCAL_TOOLS = new Set(["export_assets", "save_screenshots"]);
+const { SERVER_SIDE_TOOLS: LOCAL_TOOLS } = await import(
+  pathToFileURL(path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "server", "dist", "assets.js")).href
+);
 if (LOCAL_TOOLS.has(tool)) {
-  const here = path.dirname(fileURLToPath(import.meta.url));
   const { runServerSideTool } = await import(
     pathToFileURL(path.join(here, "..", "server", "dist", "assets.js")).href
   );

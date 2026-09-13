@@ -3,6 +3,7 @@ import type { Duplex } from "node:stream";
 import { Bridge } from "./bridge.js";
 import { validateRpc } from "./schema.js";
 import { validateFeatureRpc } from "./features.js";
+import { TOKEN_HEADER, createToken, isAllowedSocketOrigin, tokenPath } from "./auth.js";
 import { SERVER_SIDE_TOOLS, runServerSideTool } from "./assets.js";
 import type { RPCRequest, RPCResponse } from "./types.js";
 import { VERSION } from "./version.js";
@@ -17,6 +18,7 @@ import { VERSION } from "./version.js";
 export class Leader {
   private bridge: Bridge;
   private server: http.Server | null = null;
+  private token: string | null = null;
 
   constructor(private port: number) {
     this.bridge = new Bridge();
@@ -47,6 +49,12 @@ export class Leader {
       server.on("upgrade", (req: http.IncomingMessage, socket: Duplex, head: Buffer) => {
         const pathname = new URL(req.url ?? "", "http://localhost").pathname;
         if (pathname === "/ws") {
+          if (!isAllowedSocketOrigin(req.headers.origin)) {
+            console.error(`Refused a WebSocket from origin ${req.headers.origin}`);
+            socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
+            socket.destroy();
+            return;
+          }
           this.bridge.handleUpgrade(req, socket, head);
         } else {
           socket.destroy();
@@ -65,6 +73,7 @@ export class Leader {
       // Loopback only — the plugin and followers are all on this machine.
       server.listen(this.port, "127.0.0.1", () => {
         this.server = server;
+        this.token = createToken(this.port);
         console.error(`Leader listening on 127.0.0.1:${this.port}`);
         resolve();
       });
@@ -72,6 +81,23 @@ export class Leader {
   }
 
   private handleRPC(req: http.IncomingMessage, res: http.ServerResponse): void {
+    // See auth.ts: browsers send Origin, only JSON forces a preflight, and only
+    // local processes can read the token file.
+    if (req.headers.origin !== undefined) {
+      this.sendJSON(res, 403, { error: "Browser requests are not accepted" });
+      req.resume();
+      return;
+    }
+    if (!String(req.headers["content-type"] ?? "").startsWith("application/json")) {
+      this.sendJSON(res, 415, { error: "Content-Type must be application/json" });
+      req.resume();
+      return;
+    }
+    if (!this.token || req.headers[TOKEN_HEADER] !== this.token) {
+      this.sendJSON(res, 401, { error: `Missing or wrong ${TOKEN_HEADER}; read it from ${tokenPath(this.port)}` });
+      req.resume();
+      return;
+    }
     let body = "";
     req.on("data", (chunk: Buffer) => {
       body += chunk.toString();

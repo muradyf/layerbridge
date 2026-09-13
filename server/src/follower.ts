@@ -1,10 +1,18 @@
 import type { BridgeResponse, ConnectedFile, RPCRequest, RPCResponse } from "./types.js";
+import { TOKEN_HEADER, readToken } from "./auth.js";
 
 /**
  * Follower proxies MCP tool calls to the leader via HTTP /rpc.
  */
 export class Follower {
   constructor(private leaderUrl: string) {}
+
+  /** The leader writes its token to a per-user file on start (auth.ts); read it fresh each call. */
+  private headers(): Record<string, string> {
+    const port = Number(new URL(this.leaderUrl).port);
+    const token = readToken(port);
+    return { "Content-Type": "application/json", ...(token ? { [TOKEN_HEADER]: token } : {}) };
+  }
 
   send(requestType: string, nodeIds?: string[], fileKey?: string): Promise<BridgeResponse> {
     return this.sendWithParams(requestType, nodeIds, undefined, fileKey);
@@ -28,7 +36,7 @@ export class Follower {
     // nodes — so it is generous.
     const response = await fetch(`${this.leaderUrl}/rpc`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: this.headers(),
       body: JSON.stringify(rpcReq),
       signal: AbortSignal.timeout(60 * 60_000),
     });
@@ -56,7 +64,7 @@ export class Follower {
   async listConnectedFiles(): Promise<ConnectedFile[]> {
     const response = await fetch(`${this.leaderUrl}/rpc`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: this.headers(),
       body: JSON.stringify({ tool: "list_files" } as RPCRequest),
       signal: AbortSignal.timeout(5_000),
     });
