@@ -8,9 +8,11 @@
  * hexToRgba, toHex, …) are exported from ./features.
  */
 import { handleFeatureRequest, type Request, type Response } from "./features";
+import { handleQualityRequest } from "./quality";
 
 const MODULE_HANDLERS: Array<(request: Request) => Promise<Response | null>> = [
   handleFeatureRequest,
+  handleQualityRequest,
 ];
 
 export const handleModuleRequest = async (request: Request): Promise<Response | null> => {
