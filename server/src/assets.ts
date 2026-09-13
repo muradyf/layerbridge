@@ -237,6 +237,8 @@ interface ScannedNode {
 const slug = (value: string) =>
   value
     .normalize("NFKD")
+    // "media/icon/book" → "media-icon-book", not "mediaiconbook"
+    .replace(/[/=,.:]+/g, " ")
     .replace(/[^\w\s-]/g, "")
     .trim()
     .toLowerCase()
