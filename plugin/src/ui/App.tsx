@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 type ServerRequest = {
   type: string;
@@ -15,23 +15,54 @@ type PluginStatus = {
   pluginVersion?: string;
 };
 
+type Phase = "waiting" | "connecting" | "connected" | "disconnected" | "replaced";
+
 type Activity = { text: string; tone: "idle" | "busy" | "error" };
 
 // `||` (not `??`) so an empty build-time value falls back to the default.
 // A custom endpoint must also be listed in manifest.json's
 // networkAccess.allowedDomains or Figma will block the connection.
 const WS_BASE_URL = import.meta.env.VITE_FIGMA_BRIDGE_WS || "ws://localhost:1995/ws";
+const SERVER_LABEL = WS_BASE_URL.replace(/^ws:\/\//, "").replace(/\/ws$/, "");
 
 /** Close code the server uses when a newer plugin window took this file's slot. */
 const REPLACED_CODE = 4000;
 
+const PHASE_LABEL: Record<Phase, string> = {
+  waiting: "Waiting for Figma…",
+  connecting: "Connecting…",
+  connected: "Connected",
+  disconnected: "Server not running",
+  replaced: "Taken over",
+};
+
+const post = (pluginMessage: Record<string, unknown>) => parent.postMessage({ pluginMessage }, "*");
+
+const Chevron = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+    <path d="M4.5 6.5 8 10l3.5-3.5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const Glyph = ({ error }: { error: boolean }) => (
+  <svg className="glyph" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+    {error ? (
+      <>
+        <circle cx="6" cy="6" r="5" stroke="currentColor" />
+        <path d="M6 3.5v3M6 8.25v.25" stroke="currentColor" strokeLinecap="round" />
+      </>
+    ) : (
+      <circle cx="6" cy="6" r="5" stroke="currentColor" />
+    )}
+  </svg>
+);
+
 export default function App() {
-  const [connected, setConnected] = useState(false);
-  const [replaced, setReplaced] = useState(false);
+  const [phase, setPhase] = useState<Phase>("waiting");
   const [collapsed, setCollapsed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [status, setStatus] = useState<PluginStatus>({
-    fileName: "Unknown file",
+    fileName: "",
     fileKey: "",
     selectionCount: 0,
   });
@@ -39,19 +70,7 @@ export default function App() {
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<number | null>(null);
   const inFlight = useRef(new Map<string, string>());
-
-  const statusLabel = connected
-    ? "Connected"
-    : replaced
-      ? "Taken over by another window"
-      : "Disconnected";
-
-  const statusBadge = (
-    <div className={`badge ${connected ? "connected" : "disconnected"}`}>
-      <span className="dot" />
-      <span className="badge-text">{statusLabel}</span>
-    </div>
-  );
+  const panelRef = useRef<HTMLDivElement | null>(null);
 
   const refreshActivity = () => {
     const pending = [...inFlight.current.values()];
@@ -61,6 +80,17 @@ export default function App() {
       setActivity({ text: pending[pending.length - 1], tone: "busy" });
     }
   };
+
+  // Size the plugin window to the content instead of a hard-coded height.
+  useLayoutEffect(() => {
+    const panel = panelRef.current;
+    if (!panel) return;
+    const report = () => post({ type: "ui-height", height: Math.ceil(panel.getBoundingClientRect().height) });
+    report();
+    const observer = new ResizeObserver(report);
+    observer.observe(panel);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -77,38 +107,33 @@ export default function App() {
         return;
       }
 
-      if (!("requestId" in msg)) {
-        return;
-      }
+      if (!("requestId" in msg)) return;
 
       if (msg.type === "progress") {
         inFlight.current.set(msg.requestId, msg.message);
-        refreshActivity();
       } else {
         inFlight.current.delete(msg.requestId);
-        if (msg.error) {
-          setActivity({ text: `${msg.type}: ${msg.error}`, tone: "error" });
-        }
-        refreshActivity();
+        if (msg.error) setActivity({ text: msg.error, tone: "error" });
       }
+      refreshActivity();
 
-      if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
-        return;
+      if (socketRef.current?.readyState === WebSocket.OPEN) {
+        socketRef.current.send(JSON.stringify(msg));
       }
-      socketRef.current.send(JSON.stringify(msg));
     };
 
     window.addEventListener("message", handleMessage);
-    parent.postMessage({ pluginMessage: { type: "request-ui-state" } }, "*");
-    return () => {
-      window.removeEventListener("message", handleMessage);
-    };
+    // The main thread's first status message can arrive before this listener
+    // exists — upstream then sat on "Unknown file" until the selection changed.
+    // Ask for both status and collapse state once we are listening.
+    post({ type: "request-ui-state" });
+    return () => window.removeEventListener("message", handleMessage);
   }, []);
 
   const toggleCollapsed = () => {
     setCollapsed((previous) => {
       const next = !previous;
-      parent.postMessage({ pluginMessage: { type: "set-ui-collapsed", collapsed: next } }, "*");
+      post({ type: "set-ui-collapsed", collapsed: next });
       return next;
     });
   };
@@ -122,14 +147,12 @@ export default function App() {
       if (disposed) return;
 
       if (socketRef.current) {
-        const previousSocket = socketRef.current;
-        previousSocket.onopen = null;
-        previousSocket.onclose = null;
-        previousSocket.onerror = null;
-        previousSocket.onmessage = null;
-        previousSocket.close();
+        const previous = socketRef.current;
+        previous.onopen = previous.onclose = previous.onerror = previous.onmessage = null;
+        previous.close();
       }
 
+      setPhase((p) => (p === "connected" ? p : "connecting"));
       const query = new URLSearchParams({
         fileKey: status.fileKey,
         fileName: status.fileName,
@@ -139,22 +162,21 @@ export default function App() {
       socketRef.current = ws;
 
       ws.onopen = () => {
-        setConnected(true);
-        setReplaced(false);
-        parent.postMessage({ pluginMessage: { type: "ui-ready" } }, "*");
+        setPhase("connected");
+        post({ type: "ui-ready" });
       };
 
       ws.onclose = (event) => {
         if (disposed || socketRef.current !== ws) return;
-        setConnected(false);
         inFlight.current.clear();
         refreshActivity();
         // Reconnecting after being replaced is what made two plugin windows
         // evict each other forever. Stay down until asked.
         if (event.code === REPLACED_CODE) {
-          setReplaced(true);
+          setPhase("replaced");
           return;
         }
+        setPhase("disconnected");
         if (reconnectTimer.current === null) {
           reconnectTimer.current = window.setTimeout(() => {
             reconnectTimer.current = null;
@@ -165,7 +187,7 @@ export default function App() {
 
       ws.onerror = () => {
         if (disposed || socketRef.current !== ws) return;
-        setConnected(false);
+        setPhase("disconnected");
       };
 
       ws.onmessage = (event) => {
@@ -176,9 +198,9 @@ export default function App() {
         } catch {
           return;
         }
-        inFlight.current.set(payload.requestId, payload.type);
+        inFlight.current.set(payload.requestId, payload.type.replace(/_/g, " "));
         refreshActivity();
-        parent.postMessage({ pluginMessage: { type: "server-request", payload } }, "*");
+        post({ type: "server-request", payload });
       };
     };
 
@@ -190,79 +212,96 @@ export default function App() {
         window.clearTimeout(reconnectTimer.current);
         reconnectTimer.current = null;
       }
-      if (socketRef.current) {
-        const ws = socketRef.current;
-        ws.onopen = null;
-        ws.onclose = null;
-        ws.onerror = null;
-        ws.onmessage = null;
+      const ws = socketRef.current;
+      if (ws) {
+        ws.onopen = ws.onclose = ws.onerror = ws.onmessage = null;
         ws.close();
         socketRef.current = null;
       }
     };
   }, [status.fileKey, status.fileName, status.pluginVersion, attempt]);
 
+  const selection =
+    status.selectionCount === 1 ? "1 layer" : `${status.selectionCount} layers`;
+
   return (
-    <div className={`container ${collapsed ? "collapsed" : ""}`}>
-      {collapsed && <div className="titlebar">{statusBadge}</div>}
-
-      <button
-        type="button"
-        className="collapse-toggle"
-        onClick={toggleCollapsed}
-        title={collapsed ? "Restore" : "Minimize"}
-        aria-label={collapsed ? "Restore" : "Minimize"}
-        aria-expanded={!collapsed}
-      >
-        <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
-          <path
-            d="M1 3.5 L5 7 L9 3.5"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </button>
-
-      <div className="body">
-        <div className="info-section">
-          <div className="info-row">
-            <span className="info-label">File:</span>
-            <span className="info-value">{status.fileName}</span>
-          </div>
-          <div className="info-row">
-            <span className="info-label">Page:</span>
-            <span className="info-value">{status.pageName ?? "—"}</span>
-          </div>
-          <div className="info-row">
-            <span className="info-label">Selection:</span>
-            <span className="info-value">{status.selectionCount} node(s)</span>
-          </div>
-          <div className="info-row">
-            <span className="info-label">Activity:</span>
-            <span className={`info-value activity ${activity.tone}`}>{activity.text}</span>
-          </div>
+    <div ref={panelRef} className={`panel ${collapsed ? "collapsed" : ""}`}>
+      <div className="header">
+        <div className="status" title={PHASE_LABEL[phase]}>
+          <span className={`dot ${phase}`} />
+          <span className="status-label">{PHASE_LABEL[phase]}</span>
         </div>
+        <button
+          type="button"
+          className="icon-button"
+          onClick={toggleCollapsed}
+          title={collapsed ? "Expand" : "Collapse"}
+          aria-label={collapsed ? "Expand" : "Collapse"}
+          aria-expanded={!collapsed}
+        >
+          <Chevron />
+        </button>
+      </div>
 
-        <div className="footer">
-          {statusBadge}
-          {replaced ? (
+      <div className="section">
+        <div className="row">
+          <span className="row-label">File</span>
+          <span className={`row-value ${status.fileName ? "" : "muted"}`} title={status.fileName}>
+            {status.fileName || "—"}
+          </span>
+        </div>
+        <div className="row">
+          <span className="row-label">Page</span>
+          <span className={`row-value ${status.pageName ? "" : "muted"}`} title={status.pageName}>
+            {status.pageName || "—"}
+          </span>
+        </div>
+        <div className="row">
+          <span className="row-label">Selection</span>
+          <span className="row-value">{selection}</span>
+        </div>
+        <div className="row">
+          <span className="row-label">Server</span>
+          <span className="row-value muted">
+            {SERVER_LABEL}
+            {status.pluginVersion ? ` · ${status.pluginVersion}` : ""}
+          </span>
+        </div>
+      </div>
+
+      <div className="section">
+        <div className="section-title">Activity</div>
+        {phase === "replaced" ? (
+          <div className="notice">
+            <span className="notice-text">Another plugin window took over this file.</span>
             <button
               type="button"
-              className="reconnect"
+              className="button"
               onClick={() => {
-                setReplaced(false);
+                setPhase("connecting");
                 setAttempt((n) => n + 1);
               }}
             >
-              Reconnect here
+              Reconnect
             </button>
-          ) : (
-            <span className="version">{status.pluginVersion ?? ""}</span>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className={`activity ${activity.tone}`}>
+            {activity.tone === "busy" ? <span className="spinner" /> : <Glyph error={activity.tone === "error"} />}
+            <span className="activity-text" title={activity.text}>
+              {activity.text}
+            </span>
+            {activity.tone === "error" && (
+              <button
+                type="button"
+                className="button"
+                onClick={() => setActivity({ text: "Idle", tone: "idle" })}
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

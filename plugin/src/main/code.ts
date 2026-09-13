@@ -1830,16 +1830,21 @@ const handleRequest = async (request: ServerRequest): Promise<PluginResponse> =>
   }
 };
 
-const UI_WIDTH = 320;
-const UI_EXPANDED_HEIGHT = 210;
-/** Just the status bar: the collapsed ("minimized") window. */
-const UI_COLLAPSED_HEIGHT = 36;
+const UI_WIDTH = 280;
+/** Used until the UI reports its measured content height. */
+const UI_EXPANDED_HEIGHT = 248;
+/** Just the header: the collapsed window. */
+const UI_COLLAPSED_HEIGHT = 40;
 const UI_COLLAPSED_KEY = "ui-collapsed";
 
 let uiCollapsed = false;
+let uiContentHeight: number | null = null;
 
 const applyUiSize = () => {
-  figma.ui.resize(UI_WIDTH, uiCollapsed ? UI_COLLAPSED_HEIGHT : UI_EXPANDED_HEIGHT);
+  figma.ui.resize(
+    UI_WIDTH,
+    uiCollapsed ? UI_COLLAPSED_HEIGHT : Math.max(UI_COLLAPSED_HEIGHT, uiContentHeight ?? UI_EXPANDED_HEIGHT)
+  );
 };
 
 const postUiCollapseState = () => {
@@ -1848,7 +1853,12 @@ const postUiCollapseState = () => {
 
 // Start hidden so the window never flashes at full height before the stored
 // collapsed state is restored. The iframe still loads and runs while hidden.
-figma.showUI(__html__, { width: UI_WIDTH, height: UI_EXPANDED_HEIGHT, visible: false });
+figma.showUI(__html__, {
+  width: UI_WIDTH,
+  height: UI_EXPANDED_HEIGHT,
+  visible: false,
+  themeColors: true,
+});
 
 figma.clientStorage
   .getAsync(UI_COLLAPSED_KEY)
@@ -1881,6 +1891,16 @@ figma.ui.onmessage = async (message) => {
 
   if (message.type === "request-ui-state") {
     postUiCollapseState();
+    sendStatus();
+    return;
+  }
+
+  if (message.type === "ui-height") {
+    const height = Number(message.height);
+    if (Number.isFinite(height) && height > 0 && height !== uiContentHeight) {
+      uiContentHeight = height;
+      applyUiSize();
+    }
     return;
   }
 
