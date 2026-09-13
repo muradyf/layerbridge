@@ -210,7 +210,7 @@ export const handleExtraRequest = async (request: Request): Promise<Response | n
     case "health": {
       const stuck = getStuckExport();
       let probe: Record<string, unknown> = { skipped: "no nodeId given and the current page is empty" };
-      const probeId = str(params.nodeId);
+      const probeId = request.nodeIds?.[0] ?? str(params.nodeId);
       const candidate = probeId
         ? await resolveSceneNode(probeId)
         : figma.currentPage.children.find((child) => child.visible !== false);

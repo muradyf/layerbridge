@@ -61,7 +61,7 @@ if (LOCAL_TOOLS.has(tool)) {
 } else {
   out = await call({
     tool,
-    params: tool === "health" && nodeId ? { ...rest, nodeId } : rest,
+    params: rest,
     ...(nodeIds ? { nodeIds } : nodeId ? { nodeIds: [nodeId] } : {}),
     ...(fileKey ? { fileKey } : {}),
     ...(idleMs ? { idleMs } : {}),

@@ -1068,7 +1068,7 @@ const rpcToArgs: Record<
   (nodeIds?: string[], params?: Record<string, unknown>) => unknown
 > = {
   get_document: (_nodeIds, params) => ({ ...params }),
-  health: (_nodeIds, params) => ({ ...params }),
+  health: (nodeIds, params) => ({ ...params, nodeId: nodeIds?.[0] }),
   get_pages: (_nodeIds, params) => ({ ...params }),
   navigate_to_page: (_nodeIds, params) => ({ ...params }),
   get_nodes: (nodeIds, params) => ({ nodeIds, ...params }),

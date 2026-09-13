@@ -587,10 +587,13 @@ export function registerTools(server: McpServer, node: Node, port: number): void
       }
       let plugin: unknown;
       try {
+        // The node travels as nodeIds like every other node tool: the leader's
+        // RPC validation strips a `nodeId` param, which silently probed the
+        // page's first frame instead of the node asked for.
         const resp = await node.sendWithParams(
           "health",
+          nodeId ? [nodeId] : undefined,
           undefined,
-          stripUndefined({ nodeId }),
           fileKey,
           20_000
         );
