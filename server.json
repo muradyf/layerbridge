@@ -1,0 +1,50 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.muradyf/REPLACE-ME",
+  "title": "Figma Bridge",
+  "description": "Read, edit and export the Figma file open in a local plugin. No REST API, no rate limits.",
+  "version": "0.2.0",
+  "repository": {
+    "url": "https://github.com/muradyf/REPLACE-ME",
+    "source": "github",
+    "subfolder": "server"
+  },
+  "websiteUrl": "https://github.com/muradyf/REPLACE-ME#readme",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "figma-bridge-ours",
+      "version": "0.2.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "FIGMA_BRIDGE_PORT",
+          "description": "Local port the Figma plugin connects to; choose the same port in the plugin panel",
+          "format": "number",
+          "default": "1995",
+          "choices": ["1995", "1996", "1997", "1998", "1999"]
+        },
+        {
+          "name": "FIGMA_BRIDGE_OUTPUT_ROOTS",
+          "description": "Extra folders export tools may write to (; on Windows, : elsewhere). Default: working directory only",
+          "format": "string"
+        },
+        {
+          "name": "FIGMA_ACCESS_TOKEN",
+          "description": "Optional Figma personal access token; enables REST tools (comments, versions, team files)",
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "FIGMA_BRIDGE_ALLOW_SCRIPTS",
+          "description": "Allow the run_script tool to execute Plugin API code in the open file",
+          "format": "boolean",
+          "default": "false"
+        }
+      ]
+    }
+  ]
+}
