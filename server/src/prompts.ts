@@ -1,7 +1,7 @@
 /**
- * MCP prompts: reusable workflows a client can offer as slash commands
- * (e.g. `/mcp__figma-bridge__implement-design` in Claude Code). Each returns a
- * single user message naming the tools to call, in order.
+ * MCP prompts: reusable workflows a client can offer to the user (clients
+ * typically surface them as slash commands). Each returns a single user
+ * message naming the tools to call, in order.
  *
  * Tools named here that another module provides (get_code_context,
  * check_accessibility, lint_design_system, fix_design_system, import_tokens)

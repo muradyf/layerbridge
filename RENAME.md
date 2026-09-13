@@ -33,7 +33,7 @@ The name is not decided. Everything below uses the working identifiers. When the
 | `.claude-plugin/plugin.json` | `name` (namespaces skills as `/<name>:<skill>` and tools as `mcp__plugin_<name>_<server>__<tool>`), `displayName`, `description`, `homepage`, `repository`, the `mcpServers` key and its `args` package |
 | `.claude-plugin/marketplace.json` | `name` (users type `/plugin install <plugin>@<marketplace>`; must not be a reserved name), `description`, `plugins[0].name` (= plugin.json `name`), `plugins[0].description` |
 | `skills/*/SKILL.md` | descriptions say "Figma bridge"; `troubleshoot-bridge` has the npx command twice |
-| `server/src/prompts.ts` | "Figma bridge" in the troubleshoot prompt's title and text; header comment's example slash command |
+| `server/src/prompts.ts` | "Figma bridge" in the troubleshoot prompt's title and text |
 | `server/src/bridge.ts` | "No plugin connected" message names the plugin menu item |
 | `server/src/auth.ts` | token folder `figma-bridge-<user>` in the temp dir. **Servers of different versions must agree on it** (a follower reads the leader's token), so change it only with a version everyone restarts onto |
 | `server/test/distribution.test.mjs` | literal package, key and folder names in assertions |
