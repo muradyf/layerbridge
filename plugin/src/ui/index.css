@@ -159,6 +159,31 @@ body {
   color: var(--figma-color-text-tertiary, #b3b3b3);
 }
 
+.version-inline {
+  flex: 0 0 auto;
+  text-align: right;
+}
+
+.select {
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 5px;
+  border: 1px solid var(--figma-color-border, #e6e6e6);
+  background: var(--figma-color-bg, #ffffff);
+  color: var(--figma-color-text, #1e1e1e);
+  font: inherit;
+  cursor: default;
+}
+
+.select:hover {
+  border-color: var(--figma-color-border-strong, #d9d9d9);
+}
+
+.select:focus-visible {
+  outline: 1px solid var(--figma-color-border-selected, #0d99ff);
+  outline-offset: -1px;
+}
+
 /* ── activity ───────────────────────────────────────── */
 
 .activity {

@@ -8,10 +8,12 @@
   "networkAccess": {
     "allowedDomains": [
       "ws://localhost:1995",
-      "https://fonts.googleapis.com",
-      "https://fonts.gstatic.com"
+      "ws://localhost:1996",
+      "ws://localhost:1997",
+      "ws://localhost:1998",
+      "ws://localhost:1999"
     ],
-    "reasoning": "Connects to the local MCP server via WebSocket to stream Figma document data to AI tools; loads Inter for the panel"
+    "reasoning": "Connects only to the MCP server running on your own computer (localhost, ports 1995-1999) so your AI tool can read and edit this file. Nothing is sent anywhere else."
   },
   "documentAccess": "dynamic-page",
   "editorType": ["figma", "dev"],

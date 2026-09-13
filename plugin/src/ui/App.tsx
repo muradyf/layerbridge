@@ -22,8 +22,10 @@ type Activity = { text: string; tone: "idle" | "busy" | "error" };
 // `||` (not `??`) so an empty build-time value falls back to the default.
 // A custom endpoint must also be listed in manifest.json's
 // networkAccess.allowedDomains or Figma will block the connection.
-const WS_BASE_URL = import.meta.env.VITE_FIGMA_BRIDGE_WS || "ws://localhost:1995/ws";
-const SERVER_LABEL = WS_BASE_URL.replace(/^ws:\/\//, "").replace(/\/ws$/, "");
+/** Must match the manifest's allowedDomains and the server's FIGMA_BRIDGE_PORT. */
+const PORTS = [1995, 1996, 1997, 1998, 1999];
+const DEFAULT_PORT = 1995;
+const wsUrl = (port: number) => import.meta.env.VITE_FIGMA_BRIDGE_WS || `ws://localhost:${port}/ws`;
 
 /** Close code the server uses when a newer plugin window took this file's slot. */
 const REPLACED_CODE = 4000;
@@ -61,6 +63,7 @@ export default function App() {
   const [phase, setPhase] = useState<Phase>("waiting");
   const [collapsed, setCollapsed] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const [port, setPort] = useState(DEFAULT_PORT);
   const [status, setStatus] = useState<PluginStatus>({
     fileName: "",
     fileKey: "",
@@ -99,6 +102,11 @@ export default function App() {
 
       if (msg.type === "plugin-status") {
         setStatus(msg.payload);
+        return;
+      }
+
+      if (msg.type === "bridge-port") {
+        if (PORTS.includes(msg.port)) setPort(msg.port);
         return;
       }
 
@@ -158,7 +166,7 @@ export default function App() {
         fileName: status.fileName,
         pluginVersion: status.pluginVersion ?? "unknown",
       });
-      const ws = new WebSocket(`${WS_BASE_URL}?${query.toString()}`);
+      const ws = new WebSocket(`${wsUrl(port)}?${query.toString()}`);
       socketRef.current = ws;
 
       ws.onopen = () => {
@@ -219,7 +227,7 @@ export default function App() {
         socketRef.current = null;
       }
     };
-  }, [status.fileKey, status.fileName, status.pluginVersion, attempt]);
+  }, [status.fileKey, status.fileName, status.pluginVersion, attempt, port]);
 
   const selection =
     status.selectionCount === 1 ? "1 layer" : `${status.selectionCount} layers`;
@@ -261,11 +269,24 @@ export default function App() {
           <span className="row-value">{selection}</span>
         </div>
         <div className="row">
-          <span className="row-label">Server</span>
-          <span className="row-value muted">
-            {SERVER_LABEL}
-            {status.pluginVersion ? ` · ${status.pluginVersion}` : ""}
-          </span>
+          <span className="row-label">Port</span>
+          <select
+            className="select"
+            value={port}
+            aria-label="Server port"
+            onChange={(e) => {
+              const next = Number(e.target.value);
+              setPort(next);
+              post({ type: "set-bridge-port", port: next });
+            }}
+          >
+            {PORTS.map((p) => (
+              <option key={p} value={p}>
+                localhost:{p}
+              </option>
+            ))}
+          </select>
+          <span className="row-value muted version-inline">{status.pluginVersion ?? ""}</span>
         </div>
       </div>
 

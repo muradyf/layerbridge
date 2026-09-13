@@ -13,6 +13,7 @@
   },
   "devDependencies": {
     "@figma/plugin-typings": "^1.130.0",
+    "@fontsource-variable/inter": "5",
     "@types/react": "^18.3.4",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.2",

@@ -1845,6 +1845,7 @@ const UI_EXPANDED_HEIGHT = 248;
 /** Just the header: the collapsed window. */
 const UI_COLLAPSED_HEIGHT = 40;
 const UI_COLLAPSED_KEY = "ui-collapsed";
+const PORT_KEY = "bridge-port";
 
 let uiCollapsed = false;
 let uiContentHeight: number | null = null;
@@ -1901,6 +1902,14 @@ figma.ui.onmessage = async (message) => {
   if (message.type === "request-ui-state") {
     postUiCollapseState();
     sendStatus();
+    const stored = await figma.clientStorage.getAsync(PORT_KEY).catch(() => undefined);
+    figma.ui.postMessage({ type: "bridge-port", port: typeof stored === "number" ? stored : 1995 });
+    return;
+  }
+
+  if (message.type === "set-bridge-port") {
+    // Per user and per machine (clientStorage), so every file uses the same port.
+    await figma.clientStorage.setAsync(PORT_KEY, Number(message.port)).catch(() => undefined);
     return;
   }
 
