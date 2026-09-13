@@ -1,0 +1,68 @@
+{
+  "manifest_version": "0.3",
+  "name": "figma-bridge-ours",
+  "display_name": "Figma Bridge",
+  "version": "0.2.0",
+  "description": "Read, edit and export the Figma file open in the bridge plugin. No REST API, no rate limits.",
+  "long_description": "A local MCP server for the Figma plugin of the same name. Import the plugin from its manifest once (run `npx -y figma-bridge-ours@latest setup` to get the path), open it in the Figma file you want Claude to work on, and keep its window open. Everything stays on your computer.",
+  "author": {
+    "name": "Murad Yousuf",
+    "url": "https://github.com/muradyf"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/muradyf/REPLACE-ME"
+  },
+  "homepage": "https://github.com/muradyf/REPLACE-ME#readme",
+  "license": "MIT",
+  "keywords": ["figma", "design", "design-tokens", "design-to-code"],
+  "server": {
+    "type": "node",
+    "entry_point": "server/dist/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/dist/index.js"],
+      "env": {
+        "FIGMA_BRIDGE_PORT": "${user_config.port}",
+        "FIGMA_BRIDGE_OUTPUT_ROOTS": "${user_config.output_root}",
+        "FIGMA_ACCESS_TOKEN": "${user_config.access_token}",
+        "FIGMA_BRIDGE_ALLOW_SCRIPTS": "${user_config.allow_scripts}"
+      }
+    }
+  },
+  "user_config": {
+    "port": {
+      "type": "number",
+      "title": "Port",
+      "description": "Port the Figma plugin connects to. Choose the same port in the plugin panel.",
+      "default": 1995,
+      "min": 1995,
+      "max": 1999
+    },
+    "output_root": {
+      "type": "directory",
+      "title": "Export folder",
+      "description": "Folder that export tools (assets, tokens, screenshots, PDFs) may write into.",
+      "default": "${HOME}/Documents"
+    },
+    "access_token": {
+      "type": "string",
+      "title": "Figma access token (optional)",
+      "description": "Personal access token for the REST tools: comments, version history, team files. Leave empty to keep everything local.",
+      "sensitive": true,
+      "default": ""
+    },
+    "allow_scripts": {
+      "type": "boolean",
+      "title": "Allow run_script",
+      "description": "Let the run_script tool execute Plugin API code in the open file.",
+      "default": false
+    }
+  },
+  "compatibility": {
+    "platforms": ["darwin", "win32"],
+    "runtimes": {
+      "node": ">=20.0.0"
+    }
+  }
+}
