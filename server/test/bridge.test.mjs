@@ -13,7 +13,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const dist = path.join(here, "..", "dist");
 const { readToken, TOKEN_HEADER } = await import(pathToFileURL(path.join(dist, "auth.js")).href);
 
-const PORT = 1998;
+const PORT = Number(process.env.BRIDGE_TEST_PORT ?? 1998);
 const cwd = mkdtempSync(path.join(os.tmpdir(), "bridge-test-"));
 let server;
 let plugin;

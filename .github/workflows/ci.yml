@@ -34,11 +34,12 @@ jobs:
 
       - name: Server — tests (fake plugin over a real socket)
         working-directory: server
-        run: node --test test/bridge.test.mjs
+        run: bun run test
 
       - name: Plugin — install, typecheck, build
         working-directory: plugin
         run: |
           bun install --frozen-lockfile
           bunx tsc --noEmit
+          bun run test
           bun run build

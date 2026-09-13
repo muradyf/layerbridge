@@ -57,7 +57,7 @@ jobs:
 
       - name: Run tests
         working-directory: server
-        run: node --test test/bridge.test.mjs
+        run: bun run test
 
       # MIT requires the upstream copyright and permission notices in every
       # copy, including the npm tarball, whose root is server/.
