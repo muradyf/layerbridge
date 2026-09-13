@@ -4,8 +4,9 @@
  * `Record<string, ServerToolDef>` (run here), and spread them in below.
  * Registration with MCP, RPC validation and scripts/rpc.mjs all read these.
  */
+import { CODEGEN_PLUGIN_TOOLS, CODEGEN_SERVER_TOOLS } from "./codegen.js";
 import type { PluginToolDef, ServerToolDef } from "./common.js";
 
-export const MODULE_PLUGIN_TOOLS: Record<string, PluginToolDef> = {};
+export const MODULE_PLUGIN_TOOLS: Record<string, PluginToolDef> = { ...CODEGEN_PLUGIN_TOOLS };
 
-export const MODULE_SERVER_TOOLS: Record<string, ServerToolDef> = {};
+export const MODULE_SERVER_TOOLS: Record<string, ServerToolDef> = { ...CODEGEN_SERVER_TOOLS };

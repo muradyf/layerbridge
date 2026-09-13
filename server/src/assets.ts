@@ -450,8 +450,9 @@ interface TokenData {
   effectStyles: { name: string; effects: Record<string, unknown>[] }[];
 }
 
-const tokenPath = (name: string) => name.split("/").map((s) => s.trim()).filter(Boolean);
-const cssName = (parts: string[]) =>
+export const tokenPath = (name: string) => name.split("/").map((s) => s.trim()).filter(Boolean);
+/** Also used by get_code_context, so a variable gets the same custom-property name in both tools. */
+export const cssName = (parts: string[]) =>
   "--" + parts.join("-").toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
 const W3C_TYPE: Record<string, string> = { COLOR: "color", FLOAT: "number", STRING: "string", BOOLEAN: "boolean" };
 
