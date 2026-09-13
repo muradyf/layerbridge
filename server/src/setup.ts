@@ -65,7 +65,7 @@ export function installPlugin(source: string, target: string): string {
   rmSync(path.join(target, "dist"), { recursive: true, force: true });
   cpSync(path.join(source, "dist"), path.join(target, "dist"), { recursive: true });
   copyFileSync(path.join(source, "manifest.json"), path.join(target, "manifest.json"));
-  for (const notice of ["NOTICE-html-figma.md"]) {
+  for (const notice of ["NOTICE-html-figma.md", "manifest.boards.json"]) {
     if (existsSync(path.join(source, notice))) copyFileSync(path.join(source, notice), path.join(target, notice));
   }
   return path.join(target, "manifest.json");

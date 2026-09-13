@@ -103,7 +103,7 @@ jobs:
         run: |
           mkdir -p release/plugin
           cp -r plugin/dist release/plugin/
-          cp plugin/manifest.json release/plugin/
+          cp plugin/manifest.json plugin/manifest.boards.json release/plugin/
           cp README.md LICENSE.md NOTICE.md CHANGELOG.md release/
           cp plugin/src/html-figma/NOTICE.md release/plugin/NOTICE-html-figma.md
           cd release

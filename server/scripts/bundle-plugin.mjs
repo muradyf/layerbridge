@@ -20,6 +20,8 @@ for (const required of ["manifest.json", "dist/code.js", "dist/index.html"]) {
 rmSync(target, { recursive: true, force: true });
 mkdirSync(target, { recursive: true });
 cpSync(path.join(source, "manifest.json"), path.join(target, "manifest.json"));
+// FigJam and Slides need a second manifest: Figma won't allow figjam and dev together.
+cpSync(path.join(source, "manifest.boards.json"), path.join(target, "manifest.boards.json"));
 cpSync(path.join(source, "dist"), path.join(target, "dist"), { recursive: true });
 // html-figma's own MIT notice travels with the code vendored from it.
 cpSync(path.join(source, "src", "html-figma", "NOTICE.md"), path.join(target, "NOTICE-html-figma.md"));

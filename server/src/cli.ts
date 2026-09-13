@@ -158,6 +158,9 @@ async function setup(flags: Flags, port: number, io: Io): Promise<number> {
     }
     io.out(`   Plugin files are at ${target} (re-run setup after updating to refresh them).`);
     io.out(`   Figma desktop → open a design file → Plugins → Development → Import plugin from manifest… →\n   ${manifest}`);
+    if (existsSync(path.join(target, "manifest.boards.json"))) {
+      io.out(`   For FigJam boards and Slides decks, also import (from a FigJam file) →\n   ${path.join(target, "manifest.boards.json")}`);
+    }
   }
   io.out("   Already imported it? Nothing to do — Figma reads the files from that path each run.\n");
 
