@@ -34,6 +34,7 @@ interface ConnectionEntry {
   fileKey: string;
   fileName: string;
   pluginVersion: string;
+  editorType?: string;
   connectedAt: number;
   isAlive: boolean;
 }
@@ -77,6 +78,7 @@ export class Bridge {
       fileKey,
       fileName = "Unknown",
       pluginVersion = "unknown",
+      editorType,
     } = Object.fromEntries(url.searchParams);
 
     if (!fileKey) {
@@ -86,7 +88,7 @@ export class Bridge {
     }
 
     this.wss.handleUpgrade(request, socket, head, (ws) => {
-      this.handleConnection(ws, fileKey, fileName, pluginVersion);
+      this.handleConnection(ws, fileKey, fileName, pluginVersion, editorType);
     });
   }
 
@@ -94,7 +96,8 @@ export class Bridge {
     ws: WebSocket,
     fileKey: string,
     fileName: string,
-    pluginVersion: string
+    pluginVersion: string,
+    editorType?: string
   ): void {
     // A newer window for the same file wins. The close code tells the old
     // window not to reconnect — without it two windows evict each other forever.
@@ -107,6 +110,7 @@ export class Bridge {
       fileKey,
       fileName,
       pluginVersion,
+      editorType,
       connectedAt: Date.now(),
       isAlive: true,
     });
@@ -230,6 +234,7 @@ export class Bridge {
       fileKey: entry.fileKey,
       fileName: entry.fileName,
       pluginVersion: entry.pluginVersion,
+      ...(entry.editorType ? { editorType: entry.editorType } : {}),
       connectedSecondsAgo: Math.round((Date.now() - entry.connectedAt) / 1000),
     }));
   }
