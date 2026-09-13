@@ -10,5 +10,6 @@
     "skipLibCheck": true,
     "types": ["@figma/plugin-typings"]
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["src/**/*.test.ts"]
 }
