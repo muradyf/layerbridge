@@ -1,4 +1,9 @@
 /*
+ * Derived from gethopp/figma-mcp-bridge (https://github.com/gethopp/figma-mcp-bridge), MIT License.
+ * Copyright (c) 2026 GETHOPP LTD. Modifications Copyright (c) 2026 Murad Yousuf.
+ * See LICENSE.md and NOTICE.md.
+ */
+/*
  * Figma UI3 look. Colours come from Figma's own theme variables
  * (showUI themeColors: true), so the panel follows Figma's light/dark theme
  * exactly. Each var() carries Figma's light value as a fallback so the page
