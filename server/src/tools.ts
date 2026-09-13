@@ -34,6 +34,7 @@ import {
 import type { BridgeResponse } from "./types.js";
 import { runServerSideTool, type ServerSender } from "./assets.js";
 import { registerFeatureTools } from "./features.js";
+import { registerRestTools } from "./rest.js";
 import { VERSION } from "./version.js";
 import { Follower } from "./follower.js";
 
@@ -54,6 +55,7 @@ type ToolResult = {
  */
 export function registerTools(server: McpServer, node: Node, port: number): void {
   registerFeatureTools(server, node);
+  if (registerRestTools(server)) console.error("REST tools enabled (FIGMA_ACCESS_TOKEN set)");
 
   server.tool(
     "list_files",
