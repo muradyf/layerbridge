@@ -123,6 +123,16 @@ const exportParams = (opts: ExportOptions): Record<string, unknown> => {
   return params;
 };
 
+/**
+ * Figma's own exportAsync rejects with "Unable to establish connection to Figma
+ * after 10 seconds. Please check your internet connection" when the app briefly
+ * loses its server connection. Seen on 2026-09-13 mid-run: two whole screens
+ * failed, the third half, and the same nodes exported fine a minute later. It is
+ * transient, so retry it rather than report it.
+ */
+const TRANSIENT = /Unable to establish connection to Figma/i;
+const RETRY_DELAYS_MS = [3_000, 8_000, 15_000];
+
 const exportNode = async (
   sender: ServerSender,
   nodeId: string,
@@ -131,7 +141,12 @@ const exportNode = async (
   const timeoutMs = opts.timeoutMs ?? EXPORT_TIMEOUT_DEFAULT_MS;
   // The plugin's own export timeout fires first and names the node; the idle
   // timeout only catches a plugin that stopped answering altogether.
-  const resp = await sender.sendWithParams("get_screenshot", [nodeId], exportParams(opts), timeoutMs + 20_000);
+  let resp = await sender.sendWithParams("get_screenshot", [nodeId], exportParams(opts), timeoutMs + 20_000);
+  for (const delay of RETRY_DELAYS_MS) {
+    if (!resp.error || !TRANSIENT.test(resp.error)) break;
+    await new Promise((resolve) => setTimeout(resolve, delay));
+    resp = await sender.sendWithParams("get_screenshot", [nodeId], exportParams(opts), timeoutMs + 20_000);
+  }
   if (resp.error) throw new Error(resp.error);
   const exports = (resp.data as { exports?: ExportedNode[] } | undefined)?.exports;
   if (!Array.isArray(exports) || exports.length === 0 || typeof exports[0].base64 !== "string") {
