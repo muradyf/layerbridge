@@ -39,13 +39,10 @@ const call = async (body) => {
 };
 
 let out;
-const { SERVER_SIDE_TOOLS: LOCAL_TOOLS } = await import(
-  pathToFileURL(path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "server", "dist", "assets.js")).href
+const { SERVER_SIDE_TOOLS: LOCAL_TOOLS, runServerSideTool } = await import(
+  pathToFileURL(path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "server", "dist", "registry.js")).href
 );
 if (LOCAL_TOOLS.has(tool)) {
-  const { runServerSideTool } = await import(
-    pathToFileURL(path.join(here, "..", "server", "dist", "assets.js")).href
-  );
   const sender = {
     sendWithParams: async (type, ids, sendParams, idle) => {
       const r = await call({

@@ -6,7 +6,7 @@
 import { serializeNode } from "./serializer";
 import { addLayersToFrame } from "../html-figma/figma";
 import { handleExtraRequest } from "./extras";
-import { handleFeatureRequest } from "./features";
+import { handleModuleRequest } from "./modules";
 import { PLUGIN_VERSION } from "./robust";
 
 type RequestType =
@@ -389,7 +389,7 @@ const handleRequest = async (request: ServerRequest): Promise<PluginResponse> =>
     if (EDIT_REQUEST_TYPES.has(request.type)) {
       requireEditorMode(request.type);
     }
-    const extra = (await handleExtraRequest(request)) ?? (await handleFeatureRequest(request));
+    const extra = (await handleExtraRequest(request)) ?? (await handleModuleRequest(request));
     if (extra) return extra as PluginResponse;
     switch (request.type) {
       case "get_document":

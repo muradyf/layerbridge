@@ -9,7 +9,7 @@ import { Bridge } from "./bridge.js";
 import { validateRpc } from "./schema.js";
 import { validateFeatureRpc } from "./features.js";
 import { TOKEN_HEADER, createToken, isAllowedSocketOrigin, tokenPath } from "./auth.js";
-import { SERVER_SIDE_TOOLS, runServerSideTool } from "./assets.js";
+import { SERVER_SIDE_TOOLS, runServerSideTool } from "./registry.js";
 import type { RPCRequest, RPCResponse } from "./types.js";
 import { VERSION } from "./version.js";
 

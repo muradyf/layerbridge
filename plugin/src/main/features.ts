@@ -16,24 +16,24 @@ import {
   yieldToFigma,
 } from "./robust";
 
-type Request = { type: string; requestId: string; nodeIds?: string[]; params?: Record<string, unknown> };
-type Response = { type: string; requestId: string; data?: unknown; error?: string };
+export type Request = { type: string; requestId: string; nodeIds?: string[]; params?: Record<string, unknown> };
+export type Response = { type: string; requestId: string; data?: unknown; error?: string };
 
-const ok = (request: Request, data: unknown): Response => ({ type: request.type, requestId: request.requestId, data });
+export const ok = (request: Request, data: unknown): Response => ({ type: request.type, requestId: request.requestId, data });
 
 /* ── small helpers ────────────────────────────────────────────────────────── */
 
-const str = (v: unknown): string | undefined => (typeof v === "string" ? v : undefined);
-const num = (v: unknown): number | undefined => (typeof v === "number" && Number.isFinite(v) ? v : undefined);
-const bool = (v: unknown): boolean | undefined => (typeof v === "boolean" ? v : undefined);
-const arr = <T = unknown>(v: unknown): T[] | undefined => (Array.isArray(v) ? (v as T[]) : undefined);
+export const str = (v: unknown): string | undefined => (typeof v === "string" ? v : undefined);
+export const num = (v: unknown): number | undefined => (typeof v === "number" && Number.isFinite(v) ? v : undefined);
+export const bool = (v: unknown): boolean | undefined => (typeof v === "boolean" ? v : undefined);
+export const arr = <T = unknown>(v: unknown): T[] | undefined => (Array.isArray(v) ? (v as T[]) : undefined);
 
-const need = <T>(value: T | undefined, name: string): T => {
+export const need = <T>(value: T | undefined, name: string): T => {
   if (value === undefined || value === null || value === "") throw new Error(`${name} is required`);
   return value;
 };
 
-const hexToRgba = (hex: string): RGBA => {
+export const hexToRgba = (hex: string): RGBA => {
   const h = hex.trim().replace(/^#/, "");
   const full = h.length === 3 || h.length === 4 ? h.split("").map((c) => c + c).join("") : h;
   if (!/^[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(full)) throw new Error(`Invalid hex colour: ${hex}`);
@@ -45,31 +45,31 @@ const hexToRgba = (hex: string): RGBA => {
   };
 };
 
-const toHex = (c: RGB | RGBA): string => {
+export const toHex = (c: RGB | RGBA): string => {
   const ch = (v: number) => Math.round(Math.min(1, Math.max(0, v)) * 255).toString(16).padStart(2, "0");
   const a = "a" in c && c.a < 1 ? ch(c.a) : "";
   return `#${ch(c.r)}${ch(c.g)}${ch(c.b)}${a}`;
 };
 
-const solidPaint = (hex: string, opacity?: number): SolidPaint => {
+export const solidPaint = (hex: string, opacity?: number): SolidPaint => {
   const c = hexToRgba(hex);
   return { type: "SOLID", color: { r: c.r, g: c.g, b: c.b }, opacity: opacity ?? c.a };
 };
 
-const paintToJson = (p: Paint) =>
+export const paintToJson = (p: Paint) =>
   p.type === "SOLID"
     ? { type: p.type, color: toHex(p.color), opacity: p.opacity ?? 1 }
     : p.type.startsWith("GRADIENT")
       ? { type: p.type, stops: (p as GradientPaint).gradientStops.map((s) => ({ position: s.position, color: toHex(s.color) })) }
       : { type: p.type };
 
-const requireEditor = (tool: string) => {
+export const requireEditor = (tool: string) => {
   if (figma.editorType === "dev") {
     throw new Error(`${tool} changes the file, and Dev Mode is read-only. Open the plugin in the design editor.`);
   }
 };
 
-const parentOf = async (parentId: string | undefined): Promise<BaseNode & ChildrenMixin> => {
+export const parentOf = async (parentId: string | undefined): Promise<BaseNode & ChildrenMixin> => {
   if (!parentId) return figma.currentPage;
   const parent = await resolveNode(parentId);
   if (!("appendChild" in parent)) throw new Error(`Node ${parentId} cannot contain children`);
@@ -77,7 +77,7 @@ const parentOf = async (parentId: string | undefined): Promise<BaseNode & Childr
   return parent as BaseNode & ChildrenMixin;
 };
 
-const componentFrom = async (params: Record<string, unknown>): Promise<ComponentNode> => {
+export const componentFrom = async (params: Record<string, unknown>): Promise<ComponentNode> => {
   const id = str(params.componentId);
   const key = str(params.componentKey);
   if (id) {
@@ -89,19 +89,19 @@ const componentFrom = async (params: Record<string, unknown>): Promise<Component
   throw new Error("componentId or componentKey is required");
 };
 
-const variableById = async (id: string) => {
+export const variableById = async (id: string) => {
   const v = await figma.variables.getVariableByIdAsync(id);
   if (!v) throw new Error(`Variable not found: ${id}`);
   return v;
 };
 
-const collectionById = async (id: string) => {
+export const collectionById = async (id: string) => {
   const c = await figma.variables.getVariableCollectionByIdAsync(id);
   if (!c) throw new Error(`Variable collection not found: ${id}`);
   return c;
 };
 
-const variableValueToJson = (value: VariableValue): unknown => {
+export const variableValueToJson = (value: VariableValue): unknown => {
   if (typeof value === "object" && value !== null) {
     if ("type" in value && value.type === "VARIABLE_ALIAS") return { alias: value.id };
     if ("r" in value) return toHex(value as RGBA);
@@ -109,7 +109,7 @@ const variableValueToJson = (value: VariableValue): unknown => {
   return value;
 };
 
-const parseVariableValue = async (variable: Variable, value: unknown): Promise<VariableValue> => {
+export const parseVariableValue = async (variable: Variable, value: unknown): Promise<VariableValue> => {
   if (typeof value === "object" && value !== null && "alias" in value) {
     const target = await variableById(String((value as { alias: string }).alias));
     return figma.variables.createVariableAlias(target);
@@ -129,7 +129,7 @@ const parseVariableValue = async (variable: Variable, value: unknown): Promise<V
   }
 };
 
-const walk = async (root: BaseNode, visit: (n: SceneNode) => void | Promise<void>, requestId: string) => {
+export const walk = async (root: BaseNode, visit: (n: SceneNode) => void | Promise<void>, requestId: string) => {
   let count = 0;
   const go = async (n: BaseNode) => {
     if (n.type !== "DOCUMENT" && n.type !== "PAGE") await visit(n as SceneNode);
@@ -143,7 +143,7 @@ const walk = async (root: BaseNode, visit: (n: SceneNode) => void | Promise<void
   return count;
 };
 
-const loadFontsFor = async (node: TextNode) => {
+export const loadFontsFor = async (node: TextNode) => {
   const fonts = node.characters.length ? node.getRangeAllFontNames(0, node.characters.length) : [node.fontName as FontName];
   await Promise.all(fonts.map((f) => figma.loadFontAsync(f)));
 };

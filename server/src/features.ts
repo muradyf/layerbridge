@@ -6,21 +6,12 @@
  */
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
+import { confirm, fileKey, hex, nodeId, type PluginToolDef } from "./common.js";
+import { MODULE_PLUGIN_TOOLS, MODULE_SERVER_TOOLS } from "./modules.js";
 import type { Node } from "./node.js";
 import type { BridgeResponse } from "./types.js";
 
-const nodeId = z
-  .string()
-  .regex(/^(\d+:\d+|I\d+:\d+(;\d+:\d+)+)$/, "Node ID must use colon format, e.g. '4029:12345'")
-  .describe("Figma node ID, e.g. '4029:12345'");
-const fileKey = z
-  .string()
-  .optional()
-  .describe("The fileKey of the Figma file. Required when several files are connected; see list_files.");
-const confirm = z.literal(true).describe("Must be true — this cannot be undone from here");
-const hex = z.string().regex(/^#?[0-9a-fA-F]{3,8}$/, "Colour must be hex, e.g. '#7C3AED'");
-
-type Def = { description: string; schema: z.ZodObject<z.ZodRawShape>; editing?: boolean };
+type Def = PluginToolDef;
 
 export const FEATURE_TOOLS: Record<string, Def> = {
   /* components */
@@ -368,7 +359,7 @@ const render = async (fn: () => Promise<BridgeResponse>): Promise<ToolResult> =>
 };
 
 export function registerFeatureTools(server: McpServer, node: Node): void {
-  for (const [name, def] of Object.entries(FEATURE_TOOLS)) {
+  for (const [name, def] of Object.entries({ ...FEATURE_TOOLS, ...MODULE_PLUGIN_TOOLS })) {
     server.tool(name, def.description, def.schema.shape, async (args: Record<string, unknown>) => {
       const { fileKey: key, ...params } = args;
       const clean = Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined));
@@ -377,12 +368,12 @@ export function registerFeatureTools(server: McpServer, node: Node): void {
   }
 }
 
-/** For the leader's RPC path: validate a feature tool's params, keeping ids. */
+/** For the leader's RPC path: validate a feature or module tool's params, keeping ids. */
 export function validateFeatureRpc(
   tool: string,
   params?: Record<string, unknown>
 ): { error: string | null; params?: Record<string, unknown> } | null {
-  const def = FEATURE_TOOLS[tool];
+  const def = FEATURE_TOOLS[tool] ?? MODULE_PLUGIN_TOOLS[tool] ?? MODULE_SERVER_TOOLS[tool];
   if (!def) return null;
   const result = def.schema.safeParse(params ?? {});
   if (!result.success) return { error: result.error.issues[0].message };

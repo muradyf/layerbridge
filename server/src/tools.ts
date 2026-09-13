@@ -37,7 +37,9 @@ import {
   toolInputSchemas,
 } from "./schema.js";
 import type { BridgeResponse } from "./types.js";
-import { runServerSideTool, type ServerSender } from "./assets.js";
+import type { ServerSender } from "./common.js";
+import { runServerSideTool } from "./registry.js";
+import { MODULE_SERVER_TOOLS } from "./modules.js";
 import { registerFeatureTools } from "./features.js";
 import { registerRestTools } from "./rest.js";
 import { VERSION } from "./version.js";
@@ -602,6 +604,10 @@ export function registerTools(server: McpServer, node: Node, port: number): void
     toolInputSchemas.export_image_fills.shape,
     serverSideTool("export_image_fills")
   );
+
+  for (const [name, def] of Object.entries(MODULE_SERVER_TOOLS)) {
+    server.tool(name, def.description, def.schema.shape, serverSideTool(name));
+  }
 
   server.tool(
     "health",

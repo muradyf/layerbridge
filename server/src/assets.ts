@@ -10,18 +10,11 @@
 import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import type { BridgeResponse } from "./types.js";
+import type { ServerSender } from "./common.js";
+
+export type { ServerSender } from "./common.js";
 
 export type ExportFormat = "PNG" | "SVG" | "JPG" | "PDF";
-
-export interface ServerSender {
-  sendWithParams(
-    requestType: string,
-    nodeIds?: string[],
-    params?: Record<string, unknown>,
-    idleMs?: number
-  ): Promise<BridgeResponse>;
-}
 
 export const SERVER_SIDE_TOOLS = new Set([
   "save_screenshots",
