@@ -760,7 +760,7 @@ export const handleQualityRequest = async (request: Request): Promise<Response |
     case "a11y_scan":
       return ok(request, await scanA11y(request, p));
     case "a11y_annotate":
-      requireEditor(request.type);
+      // Annotations are one of the few writes Figma allows in Dev Mode, so no requireEditor here.
       return ok(request, await annotate(p));
     case "ds_scan":
       return ok(request, await scanDs(request, p));
