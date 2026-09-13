@@ -17,7 +17,7 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && bun build browser/html-figma-entry.js --format=iife --target=browser --minify --outfile=dist/vendor/html-figma.browser.js",
     "bundle-plugin": "node scripts/bundle-plugin.mjs",
     "test": "node --test --test-concurrency=1 test/*.test.mjs"
   },
@@ -40,12 +40,16 @@
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.26.0",
+    "html-figma": "0.3.1",
     "pdf-lib": "1.17.1",
+    "pixelmatch": "7.2.0",
+    "pngjs": "7.0.0",
     "ws": "^8.18.0",
     "zod": "^3.24.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "@types/pngjs": "6.0.5",
     "@types/ws": "^8.5.0",
     "typescript": "^5.6.0"
   },

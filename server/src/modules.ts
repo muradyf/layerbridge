@@ -5,7 +5,10 @@
  * Registration with MCP, RPC validation and scripts/rpc.mjs all read these.
  */
 import type { PluginToolDef, ServerToolDef } from "./common.js";
+import { SYNC_SERVER_TOOLS } from "./sync.js";
 
 export const MODULE_PLUGIN_TOOLS: Record<string, PluginToolDef> = {};
 
-export const MODULE_SERVER_TOOLS: Record<string, ServerToolDef> = {};
+export const MODULE_SERVER_TOOLS: Record<string, ServerToolDef> = {
+  ...SYNC_SERVER_TOOLS,
+};

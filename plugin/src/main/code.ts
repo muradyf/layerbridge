@@ -1468,6 +1468,22 @@ const handleRequest = async (request: ServerRequest): Promise<PluginResponse> =>
         };
         const expectedLayerCount = countLayers(root);
 
+        // Image bytes cannot travel as a Uint8Array over JSON: import_url sends
+        // them as base64 and a hand-written JSON file as a number array. The
+        // renderer hands `intArr` straight to figma.createImage, so decode here.
+        const decodeImageBytes = (layer: unknown): void => {
+          if (!layer || typeof layer !== "object") return;
+          const { fills, children } = layer as { fills?: unknown; children?: unknown };
+          if (Array.isArray(fills)) {
+            for (const fill of fills as { intArr?: unknown }[]) {
+              if (typeof fill?.intArr === "string") fill.intArr = figma.base64Decode(fill.intArr);
+              else if (Array.isArray(fill?.intArr)) fill.intArr = new Uint8Array(fill.intArr as number[]);
+            }
+          }
+          if (Array.isArray(children)) children.forEach(decodeImageBytes);
+        };
+        decodeImageBytes(root);
+
         let layerCount = 0;
         // html-figma renderer: walks the tree, creates frames/text/rects/SVG
         // vectors, matches installed fonts (including weights carried by the
