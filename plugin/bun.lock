@@ -3,7 +3,7 @@
   "configVersion": 0,
   "workspaces": {
     "": {
-      "name": "figma-mcp-bridge-plugin",
+      "name": "bridge-plugin",
       "dependencies": {
         "react": "^18.3.1",
         "react-dom": "^18.3.1",

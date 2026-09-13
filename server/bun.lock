@@ -3,7 +3,7 @@
   "configVersion": 0,
   "workspaces": {
     "": {
-      "name": "figma-mcp-bridge",
+      "name": "figma-bridge-ours",
       "dependencies": {
         "@modelcontextprotocol/sdk": "^1.26.0",
         "pdf-lib": "1.17.1",

@@ -1,14 +1,15 @@
 {
   "name": "figma-bridge-ours",
   "version": "0.2.0",
-  "description": "Our fork of gethopp/figma-mcp-bridge: timeouts that name the node, stall detection, visible-only bulk asset export",
+  "description": "Local MCP server and plugin that let AI tools read, edit and export the open Figma file — no REST API, no rate limits",
   "type": "module",
   "bin": {
     "figma-bridge-ours": "dist/index.js"
   },
   "main": "dist/index.js",
   "files": [
-    "dist"
+    "dist",
+    "NOTICE.md"
   ],
   "scripts": {
     "build": "tsc",

@@ -55,8 +55,14 @@ jobs:
             || { echo "ERROR: dist/index.js is missing the node shebang"; exit 1; }
           echo "✓ Shebang present in dist/index.js"
 
-      - name: Bundle README for npm
-        run: cp README.md server/README.md
+      - name: Run tests
+        working-directory: server
+        run: node --test test/bridge.test.mjs
+
+      # MIT requires the upstream copyright and permission notices in every
+      # copy, including the npm tarball, whose root is server/.
+      - name: Bundle README, LICENSE and NOTICE for npm
+        run: cp README.md LICENSE.md NOTICE.md server/
 
       - name: Set package version
         working-directory: server
@@ -89,12 +95,12 @@ jobs:
           cp plugin/manifest.json release/plugin/
 
           # Copy other repo files
-          cp README.md release/
-          cp LICENSE.md release/
+          cp README.md LICENSE.md NOTICE.md CHANGELOG.md release/
+          cp plugin/src/html-figma/NOTICE.md release/plugin/NOTICE-html-figma.md
 
           # Create zip
           cd release
-          zip -r ../figma-mcp-bridge-v${{ inputs.version }}.zip .
+          zip -r "../${{ github.event.repository.name }}-v${{ inputs.version }}.zip" .
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -102,4 +108,4 @@ jobs:
           tag_name: v${{ inputs.version }}
           name: Release v${{ inputs.version }}
           generate_release_notes: true
-          files: figma-mcp-bridge-v${{ inputs.version }}.zip
+          files: ${{ github.event.repository.name }}-v${{ inputs.version }}.zip
