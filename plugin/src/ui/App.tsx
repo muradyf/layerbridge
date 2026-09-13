@@ -1,85 +1,66 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import hoppLogo from "./assets/hopp-logo.png";
-
-type RequestType =
-  | "get_document"
-  | "get_selection"
-  | "get_node"
-  | "get_styles"
-  | "get_metadata"
-  | "get_design_context"
-  | "get_variable_defs"
-  | "get_screenshot"
-  | "set_node_visibility"
-  | "set_text_content"
-  | "set_text_properties"
-  | "set_node_properties"
-  | "set_solid_fill"
-  | "set_gradient_fill"
-  | "set_effects"
-  | "set_stroke_properties"
-  | "set_auto_layout"
-  | "create_frame"
-  | "create_text"
-  | "create_shape"
-  | "create_image"
-  | "duplicate_nodes"
-  | "reparent_nodes"
-  | "group_nodes"
-  | "ungroup_node"
-  | "set_selection"
-  | "scroll_and_zoom_into_view"
-  | "delete_nodes";
+import React, { useEffect, useRef, useState } from "react";
 
 type ServerRequest = {
-  type: RequestType;
+  type: string;
   requestId: string;
   nodeIds?: string[];
   params?: Record<string, unknown>;
-};
-
-type PluginResponse = {
-  type: RequestType;
-  requestId: string;
-  data?: unknown;
-  error?: string;
 };
 
 type PluginStatus = {
   fileName: string;
   fileKey: string;
   selectionCount: number;
+  pageName?: string;
+  pluginVersion?: string;
 };
+
+type Activity = { text: string; tone: "idle" | "busy" | "error" };
 
 // `||` (not `??`) so an empty build-time value falls back to the default.
 // A custom endpoint must also be listed in manifest.json's
 // networkAccess.allowedDomains or Figma will block the connection.
-const WS_BASE_URL = import.meta.env.VITE_FIGMA_BRIDGE_WS || "ws://localhost:1994/ws";
+const WS_BASE_URL = import.meta.env.VITE_FIGMA_BRIDGE_WS || "ws://localhost:1995/ws";
+
+/** Close code the server uses when a newer plugin window took this file's slot. */
+const REPLACED_CODE = 4000;
 
 export default function App() {
   const [connected, setConnected] = useState(false);
+  const [replaced, setReplaced] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const [status, setStatus] = useState<PluginStatus>({
     fileName: "Unknown file",
     fileKey: "",
     selectionCount: 0,
   });
+  const [activity, setActivity] = useState<Activity>({ text: "Idle", tone: "idle" });
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<number | null>(null);
+  const inFlight = useRef(new Map<string, string>());
 
-  const statusLabel = useMemo(
-    () => (connected ? "WebSocket Connected" : "Disconnected"),
-    [connected]
-  );
+  const statusLabel = connected
+    ? "Connected"
+    : replaced
+      ? "Taken over by another window"
+      : "Disconnected";
 
-  // One definition, rendered either in the collapsed bar or in the footer --
-  // never both at once, since .body is hidden while collapsed.
   const statusBadge = (
     <div className={`badge ${connected ? "connected" : "disconnected"}`}>
       <span className="dot" />
       <span className="badge-text">{statusLabel}</span>
     </div>
   );
+
+  const refreshActivity = () => {
+    const pending = [...inFlight.current.values()];
+    if (pending.length === 0) {
+      setActivity((prev) => (prev.tone === "error" ? prev : { text: "Idle", tone: "idle" }));
+    } else {
+      setActivity({ text: pending[pending.length - 1], tone: "busy" });
+    }
+  };
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -100,6 +81,17 @@ export default function App() {
         return;
       }
 
+      if (msg.type === "progress") {
+        inFlight.current.set(msg.requestId, msg.message);
+        refreshActivity();
+      } else {
+        inFlight.current.delete(msg.requestId);
+        if (msg.error) {
+          setActivity({ text: `${msg.type}: ${msg.error}`, tone: "error" });
+        }
+        refreshActivity();
+      }
+
       if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
         return;
       }
@@ -107,8 +99,6 @@ export default function App() {
     };
 
     window.addEventListener("message", handleMessage);
-    // The main thread reads the persisted state asynchronously, so ask for it
-    // on mount rather than relying on a broadcast we may have missed.
     parent.postMessage({ pluginMessage: { type: "request-ui-state" } }, "*");
     return () => {
       window.removeEventListener("message", handleMessage);
@@ -123,7 +113,6 @@ export default function App() {
     });
   };
 
-  // Connect/reconnect WebSocket when fileKey changes
   useEffect(() => {
     if (!status.fileKey) return;
 
@@ -141,18 +130,31 @@ export default function App() {
         previousSocket.close();
       }
 
-      const wsUrl = `${WS_BASE_URL}?fileKey=${encodeURIComponent(status.fileKey)}&fileName=${encodeURIComponent(status.fileName)}`;
-      const ws = new WebSocket(wsUrl);
+      const query = new URLSearchParams({
+        fileKey: status.fileKey,
+        fileName: status.fileName,
+        pluginVersion: status.pluginVersion ?? "unknown",
+      });
+      const ws = new WebSocket(`${WS_BASE_URL}?${query.toString()}`);
       socketRef.current = ws;
 
       ws.onopen = () => {
         setConnected(true);
+        setReplaced(false);
         parent.postMessage({ pluginMessage: { type: "ui-ready" } }, "*");
       };
 
-      ws.onclose = () => {
+      ws.onclose = (event) => {
         if (disposed || socketRef.current !== ws) return;
         setConnected(false);
+        inFlight.current.clear();
+        refreshActivity();
+        // Reconnecting after being replaced is what made two plugin windows
+        // evict each other forever. Stay down until asked.
+        if (event.code === REPLACED_CODE) {
+          setReplaced(true);
+          return;
+        }
         if (reconnectTimer.current === null) {
           reconnectTimer.current = window.setTimeout(() => {
             reconnectTimer.current = null;
@@ -168,7 +170,14 @@ export default function App() {
 
       ws.onmessage = (event) => {
         if (disposed || socketRef.current !== ws) return;
-        const payload = JSON.parse(event.data) as ServerRequest;
+        let payload: ServerRequest;
+        try {
+          payload = JSON.parse(event.data) as ServerRequest;
+        } catch {
+          return;
+        }
+        inFlight.current.set(payload.requestId, payload.type);
+        refreshActivity();
         parent.postMessage({ pluginMessage: { type: "server-request", payload } }, "*");
       };
     };
@@ -191,7 +200,7 @@ export default function App() {
         socketRef.current = null;
       }
     };
-  }, [status.fileKey, status.fileName]);
+  }, [status.fileKey, status.fileName, status.pluginVersion, attempt]);
 
   return (
     <div className={`container ${collapsed ? "collapsed" : ""}`}>
@@ -224,28 +233,35 @@ export default function App() {
             <span className="info-value">{status.fileName}</span>
           </div>
           <div className="info-row">
+            <span className="info-label">Page:</span>
+            <span className="info-value">{status.pageName ?? "—"}</span>
+          </div>
+          <div className="info-row">
             <span className="info-label">Selection:</span>
             <span className="info-value">{status.selectionCount} node(s)</span>
+          </div>
+          <div className="info-row">
+            <span className="info-label">Activity:</span>
+            <span className={`info-value activity ${activity.tone}`}>{activity.text}</span>
           </div>
         </div>
 
         <div className="footer">
           {statusBadge}
-          <a
-            href="https://www.gethopp.app/?ref=figma-mcp-bridge"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="branding"
-          >
-            <img src={hoppLogo} alt="Hopp" className="logo" />
-            <span className="sponsored-text">
-              Sponsored by Hopp
-              <br />
-              The best open-source
-              <br />
-              pair-programming app
-            </span>
-          </a>
+          {replaced ? (
+            <button
+              type="button"
+              className="reconnect"
+              onClick={() => {
+                setReplaced(false);
+                setAttempt((n) => n + 1);
+              }}
+            >
+              Reconnect here
+            </button>
+          ) : (
+            <span className="version">{status.pluginVersion ?? ""}</span>
+          )}
         </div>
       </div>
     </div>

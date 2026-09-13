@@ -1,5 +1,7 @@
 import { serializeNode } from "./serializer";
 import { addLayersToFrame } from "../html-figma/figma";
+import { handleExtraRequest } from "./extras";
+import { PLUGIN_VERSION } from "./robust";
 
 type RequestType =
   | "get_document"
@@ -111,6 +113,8 @@ const sendStatus = () => {
       fileName: figma.root.name,
       fileKey: getFileKey(),
       selectionCount: figma.currentPage.selection.length,
+      pageName: figma.currentPage.name,
+      pluginVersion: PLUGIN_VERSION,
     },
   });
 };
@@ -371,6 +375,8 @@ const handleRequest = async (request: ServerRequest): Promise<PluginResponse> =>
     if (EDIT_REQUEST_TYPES.has(request.type)) {
       requireEditorMode(request.type);
     }
+    const extra = await handleExtraRequest(request);
+    if (extra) return extra as PluginResponse;
     switch (request.type) {
       case "get_document":
         return {
@@ -455,40 +461,17 @@ const handleRequest = async (request: ServerRequest): Promise<PluginResponse> =>
       }
       case "get_design_context": {
         const depth = typeof request.params?.depth === "number" ? request.params.depth : 2;
+        // Upstream serialized each node's WHOLE subtree and then re-walked it one
+        // level at a time — quadratic in tree depth, which is why a big page timed
+        // out. Serializing once with a depth limit gives the same output.
         const serializeWithDepth = async (
           node: unknown,
-          currentDepth: number
-        ): Promise<ReturnType<typeof serializeNode>> => {
-          const serialized = serializeNode(node);
-          if (currentDepth >= depth && serialized.children) {
-            // Truncate children at depth limit, but show count
-            return {
-              ...serialized,
-              children: undefined,
-              childCount:
-                (node as ChildrenMixin & SceneNode).children?.filter((c) => c.visible !== false)
-                  .length ?? 0,
-            } as ReturnType<typeof serializeNode> & { childCount: number };
-          }
-          if (serialized.children) {
-            const childNodes = await Promise.all(
-              serialized.children.map((child) => figma.getNodeByIdAsync(child.id))
-            );
-            const serializedChildren = await Promise.all(
-              childNodes
-                .filter(
-                  (n): n is SceneNode =>
-                    n !== null && n.type !== "DOCUMENT" && "visible" in n && n.visible !== false
-                )
-                .map((n) => serializeWithDepth(n, currentDepth + 1))
-            );
-            return {
-              ...serialized,
-              children: serializedChildren,
-            };
-          }
-          return serialized;
-        };
+          _currentDepth: number
+        ): Promise<ReturnType<typeof serializeNode>> =>
+          serializeNode(node as SceneNode, {
+            depth,
+            includeHidden: request.params?.includeHidden === true,
+          });
 
         const selection = figma.currentPage.selection;
         const contextNodes =
@@ -1848,7 +1831,7 @@ const handleRequest = async (request: ServerRequest): Promise<PluginResponse> =>
 };
 
 const UI_WIDTH = 320;
-const UI_EXPANDED_HEIGHT = 180;
+const UI_EXPANDED_HEIGHT = 210;
 /** Just the status bar: the collapsed ("minimized") window. */
 const UI_COLLAPSED_HEIGHT = 36;
 const UI_COLLAPSED_KEY = "ui-collapsed";
@@ -1883,6 +1866,10 @@ figma.clientStorage
 sendStatus();
 
 figma.on("selectionchange", () => {
+  sendStatus();
+});
+
+figma.on("currentpagechange", () => {
   sendStatus();
 });
 

@@ -346,25 +346,111 @@ const serializeStyles = (node: SceneNode): SerializedStyles => {
   return styles;
 };
 
-export const serializeNode = (node: SceneNode): SerializedNode => {
-  const base: SerializedNode = {
+export type SerializeOptions = {
+  /** Keep children the design turns off (visible: false). Upstream always dropped them. */
+  includeHidden?: boolean;
+  /** Levels of children to include; deeper children are replaced by a childCount. */
+  depth?: number;
+};
+
+/* Fields a recreation needs that upstream left out: where the node sits on the
+   canvas, how it sizes inside auto-layout, which component an instance came from
+   and its property values, and per-range type when a text node mixes styles. */
+const serializeExtras = (node: SceneNode, base: SerializedNode): SerializedNode => {
+  const extra: Record<string, unknown> = {};
+  if ("absoluteBoundingBox" in node && node.absoluteBoundingBox) {
+    extra.absoluteBounds = node.absoluteBoundingBox;
+  }
+  if ("layoutSizingHorizontal" in node) {
+    try {
+      extra.layoutSizing = {
+        horizontal: (node as FrameNode).layoutSizingHorizontal,
+        vertical: (node as FrameNode).layoutSizingVertical,
+      };
+    } catch {
+      // only valid inside auto-layout
+    }
+  }
+  if ("layoutPositioning" in node && (node as FrameNode).layoutPositioning === "ABSOLUTE") {
+    extra.layoutPositioning = "ABSOLUTE";
+  }
+  if (node.type === "INSTANCE") {
+    try {
+      extra.componentProperties = node.componentProperties;
+    } catch {
+      // unavailable for some remote components
+    }
+  }
+  if (node.type === "TEXT") {
+    try {
+      if (!isMixed(node.textCase) && node.textCase !== "ORIGINAL") extra.textCase = node.textCase;
+      if (
+        isMixed(node.fontName) ||
+        isMixed(node.fontSize) ||
+        isMixed(node.fills) ||
+        isMixed(node.letterSpacing) ||
+        isMixed(node.lineHeight)
+      ) {
+        extra.textSegments = node
+          .getStyledTextSegments([
+            "fontName",
+            "fontSize",
+            "fontWeight",
+            "fills",
+            "letterSpacing",
+            "lineHeight",
+            "textDecoration",
+            "textCase",
+          ])
+          .map((segment) => ({
+            start: segment.start,
+            end: segment.end,
+            characters: segment.characters,
+            fontFamily: segment.fontName.family,
+            fontStyle: segment.fontName.style,
+            fontWeight: segment.fontWeight,
+            fontSize: segment.fontSize,
+            fills: serializePaints(segment.fills),
+            letterSpacing: serializeLetterSpacing(segment.letterSpacing),
+            lineHeight: serializeLineHeight(segment.lineHeight),
+            textDecoration: segment.textDecoration,
+            textCase: segment.textCase,
+          }));
+      }
+    } catch {
+      // segments are best-effort
+    }
+  }
+  return { ...base, ...extra };
+};
+
+export const serializeNode = (
+  node: SceneNode,
+  options: SerializeOptions = {},
+  level = 0
+): SerializedNode => {
+  const base: SerializedNode = serializeExtras(node, {
     id: node.id,
     name: node.name,
     type: node.type,
     bounds: getBounds(node),
     styles: serializeStyles(node),
-  };
+  });
 
   if (node.type === "TEXT") {
     return serializeText(node, base);
   }
 
   if ("children" in node) {
+    const children = node.children.filter(
+      (child) => options.includeHidden === true || child.visible !== false
+    );
+    if (options.depth !== undefined && level >= options.depth) {
+      return { ...base, childCount: children.length };
+    }
     return {
       ...base,
-      children: node.children
-        .filter((child) => child.visible !== false)
-        .map((child) => serializeNode(child)),
+      children: children.map((child) => serializeNode(child, options, level + 1)),
     };
   }
 
