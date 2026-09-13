@@ -561,7 +561,8 @@ export function registerTools(server: McpServer, node: Node, port: number): void
             node.sendWithParams(requestType, nodeIds, sendParams, fileKey as string | undefined, idleMs),
         };
         const result = await runServerSideTool(tool, sender, stripUndefined(params));
-        return { content: [{ type: "text", text: JSON.stringify(result) }] };
+        // Generated code and markdown go out as text, not as a JSON-escaped string.
+        return { content: [{ type: "text", text: typeof result === "string" ? result : JSON.stringify(result) }] };
       } catch (err) {
         return {
           content: [{ type: "text", text: err instanceof Error ? err.message : String(err) }],
