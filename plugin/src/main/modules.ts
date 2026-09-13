@@ -10,6 +10,7 @@
 import { handleFeatureRequest, type Request, type Response } from "./features";
 import { handleBoardsRequest } from "./boards";
 import { handleCodegenRequest } from "./codegen";
+import { handleQualityRequest } from "./quality";
 import { handleSyncRequest } from "./sync";
 
 const MODULE_HANDLERS: Array<(request: Request) => Promise<Response | null>> = [
@@ -17,6 +18,7 @@ const MODULE_HANDLERS: Array<(request: Request) => Promise<Response | null>> = [
   handleSyncRequest,
   handleCodegenRequest,
   handleBoardsRequest,
+  handleQualityRequest,
 ];
 
 export const handleModuleRequest = async (request: Request): Promise<Response | null> => {

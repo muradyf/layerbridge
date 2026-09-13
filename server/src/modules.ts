@@ -7,6 +7,7 @@
 import { CODEGEN_PLUGIN_TOOLS, CODEGEN_SERVER_TOOLS } from "./codegen.js";
 import type { PluginToolDef, ServerToolDef } from "./common.js";
 import { BOARDS_PLUGIN_TOOLS } from "./boards.js";
+import { QUALITY_SERVER_TOOLS } from "./quality.js";
 import { SYNC_SERVER_TOOLS } from "./sync.js";
 
 export const MODULE_PLUGIN_TOOLS: Record<string, PluginToolDef> = {
@@ -17,4 +18,5 @@ export const MODULE_PLUGIN_TOOLS: Record<string, PluginToolDef> = {
 export const MODULE_SERVER_TOOLS: Record<string, ServerToolDef> = {
   ...SYNC_SERVER_TOOLS,
   ...CODEGEN_SERVER_TOOLS,
+  ...QUALITY_SERVER_TOOLS,
 };
