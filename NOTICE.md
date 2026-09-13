@@ -16,6 +16,8 @@ Modifications and additions: Copyright (c) 2026 Murad Yousuf
 
 Copyright (c) Sergei Savelev
 
+The server also ships `dist/vendor/html-figma.browser.js`, a browser bundle built from the npm packages `html-figma` 0.3.1 (Copyright (c) Sergei Savelev, MIT) and `file-type` 12.4.2 (Copyright (c) Sindre Sorhus, MIT).
+
 ## License text (applies to each notice above)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
