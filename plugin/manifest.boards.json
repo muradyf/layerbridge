@@ -1,0 +1,20 @@
+{
+  "name": "Figma Bridge (ours) — FigJam & Slides",
+  "id": "figma-bridge-ours-boards",
+  "api": "1.0.0",
+  "main": "dist/code.js",
+  "ui": "dist/index.html",
+  "permissions": [],
+  "networkAccess": {
+    "allowedDomains": [
+      "ws://localhost:1995",
+      "ws://localhost:1996",
+      "ws://localhost:1997",
+      "ws://localhost:1998",
+      "ws://localhost:1999"
+    ],
+    "reasoning": "Connects only to the MCP server running on your own computer (localhost, ports 1995-1999) so your AI tool can read and edit this file. Nothing is sent anywhere else."
+  },
+  "documentAccess": "dynamic-page",
+  "editorType": ["figma", "figjam", "slides"]
+}
