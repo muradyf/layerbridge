@@ -10,6 +10,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { Node } from "./node.js";
 import { Election } from "./election.js";
 import { registerTools } from "./tools.js";
+import { registerPrompts } from "./prompts.js";
 import { VERSION } from "./version.js";
 import { ALLOWED_PORTS } from "./auth.js";
 import { SERVER_KEY } from "./brand.js";

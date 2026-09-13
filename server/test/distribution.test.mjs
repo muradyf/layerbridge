@@ -169,6 +169,101 @@ test("installPlugin copies the plugin and detects a stale copy", async () => {
   }
 });
 
+/* ── install manifests agree with each other ──────────────────────────────── */
+
+test("server.json, the npm package, the MCPB manifest and the Claude plugin agree", () => {
+  const root = path.join(here, "..", "..");
+  const readJson = (file) => JSON.parse(readFileSync(path.join(root, file), "utf8"));
+  const serverJson = readJson("server.json");
+  const mcpb = readJson("mcpb/manifest.json");
+  const plugin = readJson(".claude-plugin/plugin.json");
+  const marketplace = readJson(".claude-plugin/marketplace.json");
+
+  // MCP Registry: https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json
+  assert.match(serverJson.name, /^[a-zA-Z0-9.-]+\/[a-zA-Z0-9._-]+$/);
+  assert.ok(serverJson.description.length <= 100, "server.json description is at most 100 characters");
+  assert.ok(serverJson.title.length <= 100);
+  assert.equal(serverJson.name, pkg.mcpName, "the registry verifies npm ownership by package.json mcpName");
+  const [npm] = serverJson.packages;
+  assert.equal(npm.registryType, "npm");
+  assert.equal(npm.identifier, pkg.name);
+  assert.equal(npm.transport.type, "stdio");
+  for (const v of npm.environmentVariables) assert.ok(["string", "number", "boolean", "filepath"].includes(v.format ?? "string"));
+  for (const version of [serverJson.version, npm.version, mcpb.version]) assert.equal(version, pkg.version);
+
+  // MCPB 0.3: required fields, and every env value comes from a declared user_config key
+  for (const field of ["name", "version", "description", "author", "server"]) assert.ok(mcpb[field], `mcpb ${field}`);
+  assert.equal(mcpb.server.type, "node");
+  for (const value of Object.values(mcpb.server.mcp_config.env)) {
+    const key = value.match(/^\$\{user_config\.(\w+)\}$/)?.[1];
+    assert.ok(key && mcpb.user_config[key], `${value} refers to a declared user_config entry`);
+  }
+
+  // Claude Code plugin + marketplace
+  assert.match(plugin.name, /^[a-z0-9]+(-[a-z0-9]+)*$/);
+  assert.deepEqual(plugin.mcpServers["figma-bridge"].args, ["-y", `${pkg.name}@latest`]);
+  assert.equal(marketplace.plugins[0].name, plugin.name);
+  assert.equal(marketplace.plugins[0].source, "./");
+});
+
+test("every skill has frontmatter naming its folder and a description", () => {
+  const skillsDir = path.join(here, "..", "..", "skills");
+  const names = readdirSync(skillsDir);
+  assert.ok(names.length >= 6);
+  for (const name of names) {
+    const text = readFileSync(path.join(skillsDir, name, "SKILL.md"), "utf8");
+    const front = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+    assert.ok(front, `${name} starts with frontmatter`);
+    assert.match(front[1], new RegExp(`^name: ${name}$`, "m"));
+    const description = front[1].match(/^description: (.+)$/m)?.[1] ?? "";
+    assert.ok(description.length > 40 && description.length <= 1024, `${name} description length`);
+  }
+});
+
+/* ── MCP prompts, over the SDK's in-memory transport ──────────────────────── */
+
+test("prompts are listed with arguments and render their workflows", async () => {
+  const { McpServer } = await import("@modelcontextprotocol/sdk/server/mcp.js");
+  const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
+  const { InMemoryTransport } = await import("@modelcontextprotocol/sdk/inMemory.js");
+  const { registerPrompts, nodeTarget } = await load("prompts.js");
+
+  const server = new McpServer({ name: "test", version: "0.0.0" });
+  registerPrompts(server);
+  const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
+  const client = new Client({ name: "test-client", version: "0.0.0" });
+  await Promise.all([server.connect(serverSide), client.connect(clientSide)]);
+  try {
+    const { prompts } = await client.listPrompts();
+    assert.deepEqual(prompts.map((p) => p.name).sort(), ["audit-design", "build-in-figma", "implement-design", "sync-tokens", "troubleshoot"]);
+    const build = prompts.find((p) => p.name === "build-in-figma");
+    assert.equal(build.arguments.find((a) => a.name === "description").required, true);
+
+    const implement = await client.getPrompt({
+      name: "implement-design",
+      arguments: { node: "https://www.figma.com/design/abc/x?node-id=12-345", assetsDir: "src/icons" },
+    });
+    const text = implement.messages[0].content.text;
+    assert.match(text, /node 12:345/);
+    assert.match(text, /get_code_context/);
+    assert.match(text, /export_assets with outputDir "src\/icons"/);
+    assert.match(text, /export_tokens/);
+
+    const imported = await client.getPrompt({ name: "sync-tokens", arguments: { direction: "import", path: "tokens.json" } });
+    assert.match(imported.messages[0].content.text, /import_tokens/);
+    const audit = await client.getPrompt({ name: "audit-design", arguments: {} });
+    assert.match(audit.messages[0].content.text, /dryRun: true/);
+    const trouble = await client.getPrompt({ name: "troubleshoot", arguments: {} });
+    assert.match(trouble.messages[0].content.text, /npx -y figma-bridge-ours@latest doctor/);
+
+    assert.match(nodeTarget("4029-12345"), /node 4029:12345/);
+    assert.match(nodeTarget(undefined), /current selection/);
+  } finally {
+    await client.close();
+    await server.close();
+  }
+});
+
 /* ── doctor against a fake leader ─────────────────────────────────────────── */
 
 const listen = (handler) =>
