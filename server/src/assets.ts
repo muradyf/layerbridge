@@ -132,7 +132,7 @@ const exportParams = (opts: ExportOptions): Record<string, unknown> => {
 const TRANSIENT = /Unable to establish connection to Figma/i;
 const RETRY_DELAYS_MS = [3_000, 8_000, 15_000];
 
-const exportNode = async (
+export const exportNode = async (
   sender: ServerSender,
   nodeId: string,
   opts: ExportOptions
