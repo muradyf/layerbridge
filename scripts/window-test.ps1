@@ -3,7 +3,10 @@
 # plugin connected. Leaves the Figma window restored and in front at the end.
 #
 #   pwsh scripts/window-test.ps1            # front, covered, minimized
-param([string]$Rpc = "$PSScriptRoot\rpc.mjs")
+#   pwsh scripts/window-test.ps1 -NodeId "I2071:22581;649:9433;280:3364"   # probe a small icon
+# Probe a SMALL node: the default probe exports a whole top-level frame, which
+# takes seconds even in front and blurs the comparison.
+param([string]$NodeId = "", [string]$Rpc = "$PSScriptRoot\rpc.mjs")
 
 Add-Type @"
 using System;
@@ -23,7 +26,8 @@ $h = $figma.MainWindowHandle
 function Probe([string]$label) {
   Start-Sleep -Seconds 2
   $t = Get-Date
-  $out = node $Rpc health 2>&1 | Out-String
+  $arg = if ($NodeId) { '{"nodeId":"' + $NodeId + '"}' } else { '{}' }
+  $out = node $Rpc health $arg 2>&1 | Out-String
   $ms = [int]((Get-Date) - $t).TotalMilliseconds
   $ok = $out -match '"ok":\s*true'
   "{0,-28} {1,-5} {2,6}ms  {3}" -f $label, ($(if ($ok) { "OK" } else { "STALL" })), $ms, (($out -replace '\s+', ' ').Substring(0, [Math]::Min(140, $out.Length)))
