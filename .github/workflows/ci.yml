@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Server — install and build
+        working-directory: server
+        run: |
+          bun install --frozen-lockfile
+          bun run build
+
+      - name: Server — tests (fake plugin over a real socket)
+        working-directory: server
+        run: node --test test/bridge.test.mjs
+
+      - name: Plugin — install, typecheck, build
+        working-directory: plugin
+        run: |
+          bun install --frozen-lockfile
+          bunx tsc --noEmit
+          bun run build
