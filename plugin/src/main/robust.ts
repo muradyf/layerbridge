@@ -96,8 +96,11 @@ let stuckExport: { nodeId: string; nodeName: string; at: number } | null = null;
 
 export const getStuckExport = () => stuckExport;
 
+/* Not "bring Figma to the front": measured on 2026-09-13, this plugin kept
+   exporting through 7 minutes minimized, so that advice would send the user
+   after the wrong cause. */
 export const EXPORT_STALL_HINT =
-  "Figma stops rendering exports while its window is minimized or covered by another window — bring Figma to the front. If it is already in front, close and re-run the plugin.";
+  "Run the health tool: if its test export also stalls, close and re-run the plugin; if it passes, this node is the problem (try a smaller scale, SVG, or its children).";
 
 export const exportWithTimeout = async (
   node: SceneNode,

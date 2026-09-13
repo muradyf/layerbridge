@@ -21,7 +21,7 @@ matching `allowedDomains` entry.
 | Problem | Fix |
 |---|---|
 | A stuck Figma call (export, node lookup, page load) hung with no error, then a flat 3-minute server timeout named nothing | Every such call has its own timeout in the plugin and fails naming the node and the likely cause |
-| Exports hang while Figma's window is minimized or covered | Can't be fixed in code. `health` runs a live test export so this is told apart from a dead plugin, and batch exports stop after two stalls instead of burning a timeout per node |
+| Exports were believed to hang while Figma's window is minimized or covered | Not reproduced with this plugin: `scripts/long-hidden-test.ps1` exported an icon and a full screen every minute through 7 minutes minimized, all under 600ms. If a stall ever does happen, `health` runs a live test export, batch exports stop after two stalls, and `scripts/launch-figma.ps1` starts Figma with Chromium's background throttling off |
 | Multi-node exports ran all at once (`Promise.all`) | One node at a time, each reported separately |
 | Hidden nodes failed with Figma's opaque "no visible layers" | Checked first; the error names the hidden ancestor |
 | Long jobs hit the timeout while still working | The timeout is an *idle* timeout, re-armed by `progress` messages from the plugin |

@@ -167,8 +167,7 @@ export class Bridge {
       pending.reject(
         new Error(
           `${pending.type}: the Figma plugin went ${Math.round(pending.idleMs / 1000)}s without answering.${last} ` +
-            `If reads still work but exports hang, Figma's window is probably minimized or covered — bring it to the front. ` +
-            `Otherwise re-run the plugin. The health tool tells the two apart.`
+            `Run the health tool: if the plugin does not answer it either, re-run the plugin in Figma.`
         )
       );
     }, pending.idleMs);

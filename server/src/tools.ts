@@ -574,7 +574,7 @@ export function registerTools(server: McpServer, node: Node, port: number): void
 
   server.tool(
     "health",
-    "Diagnose the bridge: server version and role, connected files, and a live test export from the plugin. Use it when calls time out: it tells a dead plugin apart from Figma pausing exports because its window is minimized or covered.",
+    "Diagnose the bridge: server version and role, connected files, and a live test export from the plugin. Use it when calls time out: it tells a dead plugin apart from one node that will not export.",
     toolInputSchemas.health.shape,
     async ({ nodeId, fileKey }): Promise<ToolResult> => {
       let files = node.listConnectedFiles();
