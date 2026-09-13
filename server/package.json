@@ -2,6 +2,7 @@
   "name": "figma-bridge-ours",
   "version": "0.2.0",
   "description": "Local MCP server and plugin that let AI tools read, edit and export the open Figma file — no REST API, no rate limits",
+  "mcpName": "io.github.muradyf/REPLACE-ME",
   "type": "module",
   "bin": {
     "figma-bridge-ours": "dist/index.js"
@@ -9,11 +10,25 @@
   "main": "dist/index.js",
   "files": [
     "dist",
-    "NOTICE.md"
+    "!dist/**/*.map",
+    "plugin",
+    "NOTICE.md",
+    "LICENSE.md",
+    "README.md"
   ],
   "scripts": {
     "build": "tsc",
+    "bundle-plugin": "node scripts/bundle-plugin.mjs",
     "test": "node --test --test-concurrency=1 test/*.test.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/muradyf/REPLACE-ME.git",
+    "directory": "server"
+  },
+  "homepage": "https://github.com/muradyf/REPLACE-ME#readme",
+  "bugs": {
+    "url": "https://github.com/muradyf/REPLACE-ME/issues"
   },
   "keywords": [
     "figma",
@@ -36,6 +51,5 @@
   },
   "engines": {
     "node": ">=20.0.0"
-  },
-  "private": true
+  }
 }
