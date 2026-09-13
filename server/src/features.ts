@@ -360,6 +360,9 @@ const render = async (fn: () => Promise<BridgeResponse>): Promise<ToolResult> =>
 
 export function registerFeatureTools(server: McpServer, node: Node): void {
   for (const [name, def] of Object.entries({ ...FEATURE_TOOLS, ...MODULE_PLUGIN_TOOLS })) {
+    // "Internal:" defs exist so the leader's /rpc validates a server tool's
+    // plugin half; an AI tool should see only the public tool.
+    if (def.description.startsWith("Internal:")) continue;
     server.tool(name, def.description, def.schema.shape, async (args: Record<string, unknown>) => {
       const { fileKey: key, ...params } = args;
       const clean = Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined));
