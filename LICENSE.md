@@ -1,6 +1,7 @@
 MIT License
 
 Copyright (c) 2026 GETHOPP LTD
+Copyright (c) 2026 Murad Yousuf (modifications and additions since gethopp/figma-mcp-bridge ef0cf04)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
