@@ -1,0 +1,22 @@
+{
+  "name": "figma-bridge",
+  "displayName": "Figma Bridge",
+  "description": "Read, edit and export the Figma file open in the bridge plugin: MCP server plus skills for implementing designs, building in Figma, design-system audits, tokens, assets and troubleshooting.",
+  "author": {
+    "name": "Murad Yousuf",
+    "url": "https://github.com/muradyf"
+  },
+  "homepage": "https://github.com/muradyf/REPLACE-ME#readme",
+  "repository": "https://github.com/muradyf/REPLACE-ME",
+  "license": "MIT",
+  "keywords": ["figma", "design", "mcp", "design-tokens", "design-to-code"],
+  "mcpServers": {
+    "figma-bridge": {
+      "command": "npx",
+      "args": ["-y", "figma-bridge-ours@latest"],
+      "env": {
+        "FIGMA_BRIDGE_OUTPUT_ROOTS": "${CLAUDE_PROJECT_DIR}"
+      }
+    }
+  }
+}
