@@ -106,7 +106,11 @@ export type CodeContext = {
   textStyles: Record<string, TextStyle>;
   meta: Record<string, unknown>;
 };
-export type Token = { css: string; name: string; collection: string; value: number | string };
+/** `unit` is set for numbers used as lengths, so `:root` declares `8px`, not `8`. */
+export type Token = { css: string; name: string; collection: string; value: number | string; unit?: "px" };
+
+/** Style keys whose bound numbers are not lengths. */
+const UNITLESS_KEYS = new Set(["opacity", "weight", "colorOpacity"]);
 export type CodeFormat = "json" | "jsx-tailwind" | "html-css";
 export type Decl = [string, string];
 
@@ -123,18 +127,22 @@ export const variableCssName = (collection: string, name: string) => cssName([co
 /** Adds `css` to every variable-bound value and returns the tokens used, sorted. */
 export function annotateVariables(ctx: CodeContext): Token[] {
   const tokens = new Map<string, Token>();
-  const visit = (x: unknown): void => {
-    if (Array.isArray(x)) return x.forEach(visit);
+  const visit = (x: unknown, key = ""): void => {
+    if (Array.isArray(x)) return x.forEach((v) => visit(v, key));
     if (!x || typeof x !== "object") return;
     const o = x as Record<string, unknown>;
     if (isBound(o)) {
       if (typeof o.var === "string") {
         o.css = variableCssName(String(o.collection ?? ""), o.var);
-        if (!tokens.has(o.css)) tokens.set(o.css, { css: o.css, name: o.var, collection: String(o.collection ?? ""), value: o.value });
+        if (!tokens.has(o.css)) {
+          const value = o.value as number | string;
+          const unit = typeof value === "number" && value !== 0 && !UNITLESS_KEYS.has(key) ? "px" : undefined;
+          tokens.set(o.css, { css: o.css, name: o.var, collection: String(o.collection ?? ""), value, ...(unit ? { unit } : {}) });
+        }
       }
       return;
     }
-    for (const v of Object.values(o)) visit(v);
+    for (const [k, v] of Object.entries(o)) visit(v, k);
   };
   visit(ctx.styles);
   visit(ctx.textStyles);
@@ -911,7 +919,7 @@ export function renderHtml(ctx: CodeContext, tokens: Token[]): string {
   };
   render(ctx.root, null, 0);
 
-  const root = tokens.length ? [rule(":root", tokens.map((t) => [t.css, typeof t.value === "number" ? `${t.value}` : t.value]))] : [];
+  const root = tokens.length ? [rule(":root", tokens.map((t) => [t.css, typeof t.value === "number" ? `${t.value}${t.unit ?? ""}` : t.value]))] : [];
   const css = [commentBlock(headerLines(ctx, tokens, assets, "html-css")), ...root, ...rules].join("\n\n");
   return withEstimate(`<style>\n${css}\n</style>\n\n${markup.join("\n")}\n`);
 }

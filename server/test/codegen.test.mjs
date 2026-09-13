@@ -136,6 +136,19 @@ test("cssValue: px, zero, strings, bound values with fallback", () => {
   assert.equal(R.cssValue({ value: 16, varId: "VariableID:1" }), "16px");
 });
 
+test("html-css :root gives length tokens a px unit and leaves opacity and weight bare", () => {
+  const ctx = {
+    root: { id: "1:1", name: "Card", type: "FRAME", style: "s1", layout: { gap: { value: 12, var: "gap/md", collection: "Space" } } },
+    styles: { s1: { radius: { value: 8, var: "radius/md", collection: "Radius" }, opacity: { value: 0.5, var: "fade", collection: "Fx" } } },
+    textStyles: {},
+    meta: {},
+  };
+  const css = R.renderCodeContext(ctx, "html-css");
+  assert.match(css, /--space-gap-md: 12px;/);
+  assert.match(css, /--radius-radius-md: 8px;/);
+  assert.match(css, /--fx-fade: 0\.5;/);
+});
+
 test("variable names match export_tokens", () => {
   assert.equal(R.variableCssName("Color", "brand/500"), "--color-brand-500");
   assert.equal(R.variableCssName("Color", "Text / Primary"), "--color-text-primary");
