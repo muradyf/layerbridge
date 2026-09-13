@@ -390,7 +390,7 @@ const handleRequest = async (request: ServerRequest): Promise<PluginResponse> =>
         return {
           type: request.type,
           requestId: request.requestId,
-          data: serializeNode(figma.currentPage),
+          data: serializeNode(figma.currentPage as unknown as SceneNode),
         };
       case "get_selection":
         return {
@@ -797,7 +797,7 @@ const handleRequest = async (request: ServerRequest): Promise<PluginResponse> =>
 
         if (typeof params.x === "number" || typeof params.y === "number") {
           if (!("x" in node) || !("y" in node)) {
-            throw new Error(`Node does not support x/y positioning: ${node.id}`);
+            throw new Error(`Node does not support x/y positioning: ${(node as BaseNode).id}`);
           }
           positionNode(node, params.x, params.y);
           applied.x = node.x;
@@ -830,8 +830,8 @@ const handleRequest = async (request: ServerRequest): Promise<PluginResponse> =>
           if (!("cornerRadius" in node)) {
             throw new Error(`Node does not support cornerRadius: ${node.id}`);
           }
-          node.cornerRadius = params.cornerRadius;
-          applied.cornerRadius = node.cornerRadius;
+          (node as RectangleNode).cornerRadius = params.cornerRadius;
+          applied.cornerRadius = (node as RectangleNode).cornerRadius;
         }
 
         return {
@@ -1331,7 +1331,7 @@ const handleRequest = async (request: ServerRequest): Promise<PluginResponse> =>
 
         if (typeof params.strokeHex === "string") {
           if (!("strokes" in node)) {
-            throw new Error(`Node does not support strokes: ${node.id}`);
+            throw new Error(`Node does not support strokes: ${(node as BaseNode).id}`);
           }
           const strokeOpacity =
             typeof params.strokeOpacity === "number" ? params.strokeOpacity : undefined;

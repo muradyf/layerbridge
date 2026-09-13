@@ -7,7 +7,8 @@ import { LayerNode, PlainLayerNode, WithRef } from "../types";
 const processDefaultElement = (layer: LayerNode, node: SceneNode): SceneNode => {
   node.x = layer.x as number;
   node.y = layer.y as number;
-  node.resize(layer.width || 1, layer.height || 1);
+  // Only frames, rectangles, text and SVG frames reach here, and all of them resize.
+  (node as FrameNode).resize(layer.width || 1, layer.height || 1);
   assign(node, layer);
   // rects.push(frame);
   return node;
