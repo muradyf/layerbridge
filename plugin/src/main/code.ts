@@ -83,10 +83,12 @@ const generateFallbackFileKey = (): string => {
   return `unsaved-${Date.now().toString(36)}-${random}`;
 };
 
+const FILE_KEY_DATA = "bridge-file-key";
+
 const getFileKey = (): string => {
-  // figma.fileKey is available for saved files; otherwise we generate a
-  // session-scoped fallback so unsaved files (and files with duplicate names)
-  // still get a stable, unique identifier for this plugin instance.
+  // figma.fileKey is only readable by private organisation plugins, so for
+  // everyone else it is empty. Upstream then made up a key per session, which
+  // changed on every plugin restart and broke any fileKey a caller had kept.
   try {
     if (typeof figma.fileKey === "string" && figma.fileKey) {
       return figma.fileKey;
@@ -94,16 +96,22 @@ const getFileKey = (): string => {
   } catch {
     // fileKey may not be available in all contexts
   }
-  if (!cachedFallbackFileKey) {
+  if (cachedFallbackFileKey) return cachedFallbackFileKey;
+  // A key stored in the file's own plugin data survives restarts and is unique
+  // to the file. Needs edit access, so view-only files and Dev Mode fall back
+  // to a per-session key.
+  try {
+    let stored = figma.root.getPluginData(FILE_KEY_DATA);
+    if (!stored) {
+      stored = `file-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+      figma.root.setPluginData(FILE_KEY_DATA, stored);
+    }
+    cachedFallbackFileKey = stored;
+    return stored;
+  } catch {
     cachedFallbackFileKey = generateFallbackFileKey();
-    console.warn(
-      `[figma-mcp-bridge] figma.fileKey unavailable for "${figma.root.name}". ` +
-        `Using session fallback key "${cachedFallbackFileKey}". ` +
-        `If you encounter this in a built plugin, please report at ` +
-        `https://github.com/gethopp/figma-mcp-bridge/issues with steps to reproduce.`
-    );
+    return cachedFallbackFileKey;
   }
-  return cachedFallbackFileKey;
 };
 
 const sendStatus = () => {
