@@ -14,18 +14,23 @@ export class Follower {
     requestType: string,
     nodeIds?: string[],
     params?: Record<string, unknown>,
-    fileKey?: string
+    fileKey?: string,
+    idleMs?: number
   ): Promise<BridgeResponse> {
     const rpcReq: RPCRequest = { tool: requestType };
     if (nodeIds && nodeIds.length > 0) rpcReq.nodeIds = nodeIds;
     if (params && Object.keys(params).length > 0) rpcReq.params = params;
     if (fileKey) rpcReq.fileKey = fileKey;
+    if (idleMs) rpcReq.idleMs = idleMs;
 
+    // The leader enforces the real (idle) timeout. This outer one only has to
+    // outlast the longest legitimate run — an export_assets over hundreds of
+    // nodes — so it is generous.
     const response = await fetch(`${this.leaderUrl}/rpc`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(rpcReq),
-      signal: AbortSignal.timeout(210_000),
+      signal: AbortSignal.timeout(60 * 60_000),
     });
 
     if (!response.ok) {

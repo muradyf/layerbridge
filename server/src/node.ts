@@ -39,12 +39,13 @@ export class Node {
     requestType: string,
     nodeIds?: string[],
     params?: Record<string, unknown>,
-    fileKey?: string
+    fileKey?: string,
+    idleMs?: number
   ): Promise<BridgeResponse> {
     if (this._role === Role.Leader && this.leader) {
-      return this.leader.getBridge().sendWithParams(requestType, nodeIds, params, fileKey);
+      return this.leader.getBridge().sendWithParams(requestType, nodeIds, params, fileKey, idleMs);
     }
-    return this.follower.sendWithParams(requestType, nodeIds, params, fileKey);
+    return this.follower.sendWithParams(requestType, nodeIds, params, fileKey, idleMs);
   }
 
   listConnectedFiles(): ConnectedFile[] | undefined {

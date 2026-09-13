@@ -7,13 +7,15 @@ import { Election } from "./election.js";
 import { registerTools } from "./tools.js";
 import { VERSION } from "./version.js";
 
-// Overridable so a fork/test instance can run beside a stock 1994 bridge
-// without joining its leader election. The plugin must be built with the
-// matching VITE_FIGMA_BRIDGE_WS URL (which must also be listed in the
-// plugin manifest's networkAccess.allowedDomains).
+// 1995, not upstream's 1994: 1994 is also figma-mcp-go's port, and sharing it
+// made the two servers' leader elections and plugins collide. The plugin must
+// be built with the matching VITE_FIGMA_BRIDGE_WS URL (which must also be
+// listed in the plugin manifest's networkAccess.allowedDomains).
+export const DEFAULT_PORT = 1995;
+
 function resolvePort(): number {
   const raw = process.env.FIGMA_BRIDGE_PORT;
-  if (raw === undefined) return 1994;
+  if (raw === undefined) return DEFAULT_PORT;
   const port = Number(raw.trim());
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     // An explicitly set but invalid value must not silently join the stock

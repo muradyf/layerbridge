@@ -2,8 +2,7 @@ import http from "node:http";
 import type { Duplex } from "node:stream";
 import { Bridge } from "./bridge.js";
 import { validateRpc } from "./schema.js";
-import { executeSaveScreenshots } from "./tools.js";
-import type { ExportFormat } from "./tools.js";
+import { SERVER_SIDE_TOOLS, runServerSideTool } from "./assets.js";
 import type { RPCRequest, RPCResponse } from "./types.js";
 import { VERSION } from "./version.js";
 
@@ -53,19 +52,19 @@ export class Leader {
         }
       });
 
-      // Fail fast if port is already in use
       server.on("error", (err: NodeJS.ErrnoException) => {
         if (err.code === "EADDRINUSE") {
           reject(new Error(`Port ${this.port} already in use`));
         } else {
           console.error("Leader HTTP server error:", err);
-          if (!this.server) reject(err); // reject if during startup
+          if (!this.server) reject(err);
         }
       });
 
-      server.listen(this.port, () => {
+      // Loopback only — the plugin and followers are all on this machine.
+      server.listen(this.port, "127.0.0.1", () => {
         this.server = server;
-        console.error(`Leader listening on :${this.port}`);
+        console.error(`Leader listening on 127.0.0.1:${this.port}`);
         resolve();
       });
     });
@@ -80,7 +79,6 @@ export class Leader {
       try {
         const rpcReq: RPCRequest = JSON.parse(body);
 
-        // Handle list_files as a special RPC (not forwarded to plugin)
         if (rpcReq.tool === "list_files") {
           this.sendJSON(res, 200, {
             data: this.bridge.listConnectedFiles(),
@@ -100,25 +98,16 @@ export class Leader {
         const validatedParams = validation.params ?? rpcReq.params;
         const fileKey = rpcReq.fileKey;
 
-        // Currently the only tool that is not forwarded to the plugin is save_screenshots
-        // If more are added we need to refactor to a better abstraction.
-        if (rpcReq.tool === "save_screenshots") {
-          const params = validatedParams ?? {};
-          // Create a sender bound to the specific fileKey
+        if (SERVER_SIDE_TOOLS.has(rpcReq.tool)) {
           const sender = {
             sendWithParams: (
               requestType: string,
               nodeIds?: string[],
-              sendParams?: Record<string, unknown>
-            ) => this.bridge.sendWithParams(requestType, nodeIds, sendParams, fileKey),
+              sendParams?: Record<string, unknown>,
+              idleMs?: number
+            ) => this.bridge.sendWithParams(requestType, nodeIds, sendParams, fileKey, idleMs),
           };
-          const result = await executeSaveScreenshots(
-            sender,
-            params.items as Parameters<typeof executeSaveScreenshots>[1],
-            params.format as ExportFormat | undefined,
-            params.scale as number | undefined,
-            params.clip as boolean | undefined
-          );
+          const result = await runServerSideTool(rpcReq.tool, sender, validatedParams ?? {});
           this.sendJSON(res, 200, { data: result });
           return;
         }
@@ -127,7 +116,8 @@ export class Leader {
           rpcReq.tool,
           rpcReq.nodeIds,
           validatedParams,
-          fileKey
+          fileKey,
+          rpcReq.idleMs
         );
 
         this.sendJSON(res, 200, resp.error ? { error: resp.error } : { data: resp.data });

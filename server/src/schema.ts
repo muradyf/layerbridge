@@ -590,8 +590,152 @@ export const importHtmlLayersInput = z.object({
   fileKey: fileKeyField,
 });
 
+/* ── Fields shared by this fork's export and read tools ─────────────────────── */
+
+const svgExportFields = {
+  svgOutlineText: z
+    .boolean()
+    .optional()
+    .describe("SVG only: outline text as paths (Figma default true). False keeps <text> elements."),
+  svgIdAttribute: z
+    .boolean()
+    .optional()
+    .describe("SVG only: write layer names as id attributes (Figma default false)"),
+  svgSimplifyStroke: z
+    .boolean()
+    .optional()
+    .describe("SVG only: simplify inside/outside strokes (Figma default true)"),
+};
+
+const exportTimeoutField = z
+  .number()
+  .positive()
+  .optional()
+  .describe(
+    "Milliseconds one export may take before it is reported as stuck (default 30000). A stuck export almost always means Figma's window is minimized or covered."
+  );
+
+const allowHiddenField = z
+  .boolean()
+  .optional()
+  .describe(
+    "Export even when the node or an ancestor is hidden (default false — hidden nodes are reported instead, since they render nothing)"
+  );
+
+const overwriteField = z
+  .boolean()
+  .optional()
+  .describe("Replace files that already exist (default false — existing files are reported, not touched)");
+
+const scanFilterFields = {
+  types: z
+    .array(z.string())
+    .optional()
+    .describe("Node types to match, e.g. ['INSTANCE','VECTOR','BOOLEAN_OPERATION','TEXT','FRAME']"),
+  namePattern: z
+    .string()
+    .optional()
+    .describe("Case-insensitive regular expression the layer name must match"),
+  minSize: z.number().optional().describe("Match only nodes whose larger side is at least this many px"),
+  maxSize: z.number().optional().describe("Match only nodes whose larger side is at most this many px"),
+  maxDepth: z.number().int().positive().optional().describe("Do not descend deeper than this"),
+  stopAtMatch: z
+    .boolean()
+    .optional()
+    .describe(
+      "Do not look inside a node that matched — so an icon instance is returned whole, not also as its inner vectors"
+    ),
+};
+
 export const toolInputSchemas = {
   get_document: z.object({
+    fileKey: fileKeyField,
+  }),
+
+  health: z.object({
+    nodeId: createFigmaNodeIdSchema()
+      .optional()
+      .describe("Node to test-export (default: the first visible layer on the current page)"),
+    fileKey: fileKeyField,
+  }),
+
+  get_pages: z.object({
+    fileKey: fileKeyField,
+  }),
+
+  navigate_to_page: z.object({
+    pageId: z.string().optional().describe("Page ID, e.g. '0:1'"),
+    pageName: z.string().optional().describe("Exact page name, used when pageId is not given"),
+    fileKey: fileKeyField,
+  }),
+
+  get_nodes: z.object({
+    nodeIds: z.array(createFigmaNodeIdSchema()).min(1).describe("Node IDs to fetch"),
+    depth: z.number().int().min(0).optional().describe("Levels of children to include (default all)"),
+    includeHidden: z
+      .boolean()
+      .optional()
+      .describe("Include children the design hides (visible: false). Default false."),
+    fileKey: fileKeyField,
+  }),
+
+  scan_nodes: z.object({
+    rootId: createFigmaNodeIdSchema().describe("Node whose subtree is searched"),
+    ...scanFilterFields,
+    textPattern: z
+      .string()
+      .optional()
+      .describe("Case-insensitive regular expression a TEXT node's characters must match"),
+    visibleOnly: z
+      .boolean()
+      .optional()
+      .describe("Skip hidden layers and everything inside them (default true)"),
+    limit: z.number().int().positive().optional().describe("Maximum matches returned (default 2000)"),
+    fileKey: fileKeyField,
+  }),
+
+  export_assets: z.object({
+    rootId: createFigmaNodeIdSchema()
+      .optional()
+      .describe("Scan this node's subtree with the filter below and export every match"),
+    nodeIds: z
+      .array(createFigmaNodeIdSchema())
+      .optional()
+      .describe("Export exactly these nodes instead of scanning (rootId still sets relative positions)"),
+    ...scanFilterFields,
+    includeHidden: z
+      .boolean()
+      .optional()
+      .describe("Also match layers the design hides (default false; they render nothing)"),
+    outputDir: z
+      .string()
+      .min(1)
+      .describe(
+        "Directory to write into, relative to the MCP server's working directory (or inside FIGMA_BRIDGE_OUTPUT_ROOTS)"
+      ),
+    format: createExportFormatSchema().optional().describe("Default SVG"),
+    scale: z.number().positive().optional().describe("Raster scale (default 2)"),
+    clip: z.boolean().optional().describe("Use the node's logical bounds instead of its render bounds"),
+    ...svgExportFields,
+    fileName: z
+      .string()
+      .optional()
+      .describe(
+        "File name template without extension. Tokens: {name} {id} {index} {type} {x} {y} (x/y relative to rootId). Default '{name}__{id}'"
+      ),
+    overwrite: overwriteField,
+    dedupe: z
+      .boolean()
+      .optional()
+      .describe(
+        "When two nodes export byte-identical files (ignoring generated SVG ids), write the file once and point the second at it in the manifest (default true)"
+      ),
+    manifest: z
+      .boolean()
+      .optional()
+      .describe("Write manifest.json listing every node, its bounds and its file (default true)"),
+    limit: z.number().int().positive().optional().describe("Maximum nodes to export (default 500)"),
+    timeoutMs: exportTimeoutField,
     fileKey: fileKeyField,
   }),
 
@@ -603,6 +747,11 @@ export const toolInputSchemas = {
     nodeId: createFigmaNodeIdSchema().describe(
       "The node ID to fetch. Accepts top-level IDs like '4029:12345' and instance-child IDs like 'I12740:17806;12740:17793'."
     ),
+    depth: z.number().int().min(0).optional().describe("Levels of children to include (default all)"),
+    includeHidden: z
+      .boolean()
+      .optional()
+      .describe("Include children the design hides (visible: false). Default false."),
     fileKey: fileKeyField,
   }),
 
@@ -643,6 +792,9 @@ export const toolInputSchemas = {
       .describe(
         "When true, export using Figma's absolute node bounds (REST use_absolute_bounds / plugin useAbsoluteBounds) so PNGs are clipped to the node's logical bounds"
       ),
+    ...svgExportFields,
+    allowHidden: allowHiddenField,
+    timeoutMs: exportTimeoutField,
     fileKey: fileKeyField,
   }),
 
@@ -790,6 +942,10 @@ export const toolInputSchemas = {
       .describe(
         "Default clipping behavior for saved screenshots. When true, PNGs are clipped to the node's logical bounds using Figma's absolute node bounds."
       ),
+    ...svgExportFields,
+    allowHidden: allowHiddenField,
+    overwrite: overwriteField,
+    timeoutMs: exportTimeoutField,
     fileKey: fileKeyField,
   }),
 
@@ -912,6 +1068,12 @@ const rpcToArgs: Record<
   (nodeIds?: string[], params?: Record<string, unknown>) => unknown
 > = {
   get_document: (_nodeIds, params) => ({ ...params }),
+  health: (_nodeIds, params) => ({ ...params }),
+  get_pages: (_nodeIds, params) => ({ ...params }),
+  navigate_to_page: (_nodeIds, params) => ({ ...params }),
+  get_nodes: (nodeIds, params) => ({ nodeIds, ...params }),
+  scan_nodes: (_nodeIds, params) => ({ ...params }),
+  export_assets: (_nodeIds, params) => ({ ...params }),
   get_selection: (_nodeIds, params) => ({ ...params }),
   get_node: (nodeIds, params) => ({ ...params, nodeId: nodeIds?.[0] }),
   get_styles: (_nodeIds, params) => ({ ...params }),

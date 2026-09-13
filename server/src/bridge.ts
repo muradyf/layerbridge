@@ -3,17 +3,33 @@ import type { IncomingMessage } from "node:http";
 import type { Duplex } from "node:stream";
 import type { BridgeRequest, BridgeResponse, ConnectedFile } from "./types.js";
 
+/**
+ * How long a request may go WITHOUT HEARING FROM THE PLUGIN before it fails.
+ * Upstream used a flat 3 minutes from send; a long scan then either timed out
+ * while still working or a dead request sat for 3 minutes. The plugin now posts
+ * `progress` messages during long work, and each one re-arms this timer.
+ */
+export const DEFAULT_IDLE_TIMEOUT_MS = 90_000;
+
+/** Close code sent to a plugin window whose file slot a newer window took. */
+export const REPLACED_CLOSE_CODE = 4000;
+
 interface PendingRequest {
+  type: string;
   resolve: (resp: BridgeResponse) => void;
   reject: (err: Error) => void;
   timeout: ReturnType<typeof setTimeout>;
+  idleMs: number;
   ws: WebSocket;
+  lastProgress?: string;
 }
 
 interface ConnectionEntry {
   ws: WebSocket;
   fileKey: string;
   fileName: string;
+  pluginVersion: string;
+  connectedAt: number;
   isAlive: boolean;
 }
 
@@ -25,7 +41,7 @@ export class Bridge {
   private pingTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
-    this.wss = new WebSocketServer({ noServer: true });
+    this.wss = new WebSocketServer({ noServer: true, maxPayload: 256 * 1024 * 1024 });
     this.wss.on("error", (err) => {
       console.error("WebSocketServer error:", err);
     });
@@ -52,7 +68,11 @@ export class Bridge {
     }
 
     const url = new URL(request.url, "http://localhost");
-    const { fileKey, fileName = "Unknown" } = Object.fromEntries(url.searchParams);
+    const {
+      fileKey,
+      fileName = "Unknown",
+      pluginVersion = "unknown",
+    } = Object.fromEntries(url.searchParams);
 
     if (!fileKey) {
       console.error("Plugin connected without fileKey, rejecting");
@@ -61,23 +81,31 @@ export class Bridge {
     }
 
     this.wss.handleUpgrade(request, socket, head, (ws) => {
-      this.handleConnection(ws, fileKey, fileName);
+      this.handleConnection(ws, fileKey, fileName, pluginVersion);
     });
   }
 
-  private handleConnection(ws: WebSocket, fileKey: string, fileName: string): void {
-    // Replace existing connection for the same file
+  private handleConnection(
+    ws: WebSocket,
+    fileKey: string,
+    fileName: string,
+    pluginVersion: string
+  ): void {
+    // A newer window for the same file wins. The close code tells the old
+    // window not to reconnect — without it two windows evict each other forever.
     const existing = this.connections.get(fileKey);
     if (existing) {
-      existing.ws.close();
+      existing.ws.close(REPLACED_CLOSE_CODE, "replaced by a newer plugin window for this file");
     }
     this.connections.set(fileKey, {
       ws,
       fileKey,
       fileName,
+      pluginVersion,
+      connectedAt: Date.now(),
       isAlive: true,
     });
-    console.error(`Plugin connected: ${fileName} (${fileKey})`);
+    console.error(`Plugin connected: ${fileName} (${fileKey}) v${pluginVersion}`);
 
     ws.on("pong", () => {
       const entry = this.connections.get(fileKey);
@@ -85,17 +113,28 @@ export class Bridge {
     });
 
     ws.on("message", (data) => {
+      let msg: BridgeResponse & { message?: string };
       try {
-        const resp: BridgeResponse = JSON.parse(data.toString());
-        const pending = this.pending.get(resp.requestId);
-        if (pending) {
-          clearTimeout(pending.timeout);
-          this.pending.delete(resp.requestId);
-          pending.resolve(resp);
-        }
+        msg = JSON.parse(data.toString());
       } catch {
         console.error("Invalid response from plugin");
+        return;
       }
+      const entry = this.connections.get(fileKey);
+      if (entry && entry.ws === ws) entry.isAlive = true;
+
+      const pending = this.pending.get(msg.requestId);
+      if (!pending) return;
+
+      if (msg.type === "progress") {
+        pending.lastProgress = msg.message;
+        this.arm(msg.requestId, pending);
+        return;
+      }
+
+      clearTimeout(pending.timeout);
+      this.pending.delete(msg.requestId);
+      pending.resolve(msg);
     });
 
     ws.on("close", () => {
@@ -104,7 +143,10 @@ export class Bridge {
         this.connections.delete(fileKey);
         console.error(`Plugin disconnected: ${fileName} (${fileKey})`);
       }
-      this.rejectPendingForSocket(ws, `Plugin disconnected: ${fileName} (${fileKey})`);
+      this.rejectPendingForSocket(
+        ws,
+        `The Figma plugin disconnected (${fileName}) before answering. Re-run the plugin in Figma.`
+      );
     });
 
     ws.on("error", (err) => {
@@ -115,6 +157,21 @@ export class Bridge {
       }
       this.rejectPendingForSocket(ws, `Plugin connection error (${fileName}): ${err.message}`);
     });
+  }
+
+  private arm(requestId: string, pending: PendingRequest): void {
+    clearTimeout(pending.timeout);
+    pending.timeout = setTimeout(() => {
+      this.pending.delete(requestId);
+      const last = pending.lastProgress ? ` Last progress: "${pending.lastProgress}".` : "";
+      pending.reject(
+        new Error(
+          `${pending.type}: the Figma plugin went ${Math.round(pending.idleMs / 1000)}s without answering.${last} ` +
+            `If reads still work but exports hang, Figma's window is probably minimized or covered — bring it to the front. ` +
+            `Otherwise re-run the plugin. The health tool tells the two apart.`
+        )
+      );
+    }, pending.idleMs);
   }
 
   private rejectPendingForSocket(ws: WebSocket, reason: string): void {
@@ -148,7 +205,9 @@ export class Bridge {
     }
 
     if (this.connections.size === 0) {
-      throw new Error("No plugin connected. Open a Figma file and run the bridge plugin.");
+      throw new Error(
+        "No plugin connected. In Figma desktop run Plugins → Development → Figma Bridge (ours) in the file you want."
+      );
     }
 
     if (this.connections.size === 1) {
@@ -166,6 +225,8 @@ export class Bridge {
     return [...this.connections.values()].map((entry) => ({
       fileKey: entry.fileKey,
       fileName: entry.fileName,
+      pluginVersion: entry.pluginVersion,
+      connectedSecondsAgo: Math.round((Date.now() - entry.connectedAt) / 1000),
     }));
   }
 
@@ -177,7 +238,8 @@ export class Bridge {
     requestType: string,
     nodeIds?: string[],
     params?: Record<string, unknown>,
-    fileKey?: string
+    fileKey?: string,
+    idleMs: number = DEFAULT_IDLE_TIMEOUT_MS
   ): Promise<BridgeResponse> {
     return new Promise((resolve, reject) => {
       let conn: WebSocket;
@@ -205,16 +267,20 @@ export class Bridge {
         request.params = params;
       }
 
-      const timeout = setTimeout(() => {
-        this.pending.delete(requestId);
-        reject(new Error("Request timed out (3 minutes)"));
-      }, 180_000);
-
-      this.pending.set(requestId, { resolve, reject, timeout, ws: conn });
+      const pending: PendingRequest = {
+        type: requestType,
+        resolve,
+        reject,
+        timeout: setTimeout(() => {}, 0),
+        idleMs,
+        ws: conn,
+      };
+      this.pending.set(requestId, pending);
+      this.arm(requestId, pending);
 
       conn.send(JSON.stringify(request), (err) => {
         if (err) {
-          clearTimeout(timeout);
+          clearTimeout(pending.timeout);
           this.pending.delete(requestId);
           reject(err);
         }
@@ -237,8 +303,7 @@ export class Bridge {
       this.pingTimer = null;
     }
 
-    // Reject all pending requests
-    for (const [id, { reject, timeout }] of this.pending) {
+    for (const [, { reject, timeout }] of this.pending) {
       clearTimeout(timeout);
       reject(new Error("Bridge closed"));
     }

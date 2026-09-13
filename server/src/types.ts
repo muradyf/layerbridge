@@ -17,6 +17,8 @@ export interface RPCRequest {
   nodeIds?: string[];
   params?: Record<string, unknown>;
   fileKey?: string;
+  /** How long the leader may wait without hearing from the plugin. */
+  idleMs?: number;
 }
 
 export interface RPCResponse {
@@ -27,6 +29,8 @@ export interface RPCResponse {
 export interface ConnectedFile {
   fileKey: string;
   fileName: string;
+  pluginVersion?: string;
+  connectedSecondsAgo?: number;
 }
 
 export enum Role {

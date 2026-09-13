@@ -1,6 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { lookup } from "node:dns/promises";
-import { mkdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
+import { readFile, realpath, stat } from "node:fs/promises";
 import { isIP } from "node:net";
 import path from "node:path";
 import type { z } from "zod";
@@ -32,6 +32,8 @@ import {
   toolInputSchemas,
 } from "./schema.js";
 import type { BridgeResponse } from "./types.js";
+import { runServerSideTool, type ServerSender } from "./assets.js";
+import { VERSION } from "./version.js";
 import { Follower } from "./follower.js";
 
 const MAX_IMAGE_BYTES = 32 * 1024 * 1024;
@@ -42,46 +44,6 @@ type ToolResult = {
   content: Array<{ type: "text"; text: string }>;
   isError?: boolean;
 };
-
-export type ExportFormat = "PNG" | "SVG" | "JPG" | "PDF";
-
-export interface ScreenshotSender {
-  sendWithParams(
-    requestType: string,
-    nodeIds?: string[],
-    params?: Record<string, unknown>
-  ): Promise<BridgeResponse>;
-}
-
-interface ScreenshotExport {
-  nodeId: string;
-  nodeName: string;
-  format: ExportFormat;
-  base64: string;
-  width: number;
-  height: number;
-}
-
-interface SaveScreenshotItemInput {
-  nodeId: string;
-  outputPath: string;
-  format?: ExportFormat;
-  scale?: number;
-  clip?: boolean;
-}
-
-interface SaveScreenshotItemResult {
-  index: number;
-  nodeId: string;
-  nodeName?: string;
-  outputPath: string;
-  format?: ExportFormat;
-  width?: number;
-  height?: number;
-  bytesWritten?: number;
-  success: boolean;
-  error?: string;
-}
 
 /**
  * Registers all Figma bridge tools on the given MCP server.
@@ -140,8 +102,10 @@ export function registerTools(server: McpServer, node: Node, port: number): void
     "get_node",
     "Get a specific Figma node by ID. Accepts top-level IDs like '4029:12345' and instance-child IDs like 'I12740:17806;12740:17793'. Never use hyphens. When multiple files are connected, specify fileKey.",
     toolInputSchemas.get_node.shape,
-    async ({ nodeId, fileKey }): Promise<ToolResult> => {
-      return renderResponse(() => node.send("get_node", [nodeId], fileKey));
+    async ({ nodeId, depth, includeHidden, fileKey }): Promise<ToolResult> => {
+      return renderResponse(() =>
+        node.sendWithParams("get_node", [nodeId], stripUndefined({ depth, includeHidden }), fileKey)
+      );
     }
   );
 
@@ -191,12 +155,12 @@ export function registerTools(server: McpServer, node: Node, port: number): void
     "get_screenshot",
     "Export a screenshot of the selected nodes or specific nodes by ID. Returns base64-encoded image data. When multiple files are connected, specify fileKey.",
     toolInputSchemas.get_screenshot.shape,
-    async ({ nodeIds, format, scale, clip, fileKey }): Promise<ToolResult> => {
-      const params: Record<string, unknown> = {};
-      if (format) params.format = format;
-      if (scale !== undefined && scale > 0) params.scale = scale;
-      if (clip !== undefined) params.clip = clip;
-      return renderResponse(() => node.sendWithParams("get_screenshot", nodeIds, params, fileKey));
+    async ({ nodeIds, fileKey, ...options }): Promise<ToolResult> => {
+      const params = stripUndefined(options);
+      const idleMs = (options.timeoutMs ?? 30_000) + 20_000;
+      return renderResponse(() =>
+        node.sendWithParams("get_screenshot", nodeIds, params, fileKey, idleMs)
+      );
     }
   );
 
@@ -575,83 +539,116 @@ export function registerTools(server: McpServer, node: Node, port: number): void
     }
   );
 
-  server.tool(
-    "save_screenshots",
-    "Export screenshots for multiple nodes and save them directly to the local filesystem. Returns metadata only (no base64). When multiple files are connected, specify fileKey.",
-    toolInputSchemas.save_screenshots.shape,
-    async ({ items, format, scale, clip, fileKey }): Promise<ToolResult> => {
+
+  const serverSideTool =
+    (tool: string) =>
+    async ({ fileKey, ...params }: Record<string, unknown>): Promise<ToolResult> => {
       try {
-        // Create a sender bound to the specific fileKey
-        const sender: ScreenshotSender = {
-          sendWithParams: (requestType, nodeIds, params) =>
-            node.sendWithParams(requestType, nodeIds, params, fileKey),
+        const sender: ServerSender = {
+          sendWithParams: (requestType, nodeIds, sendParams, idleMs) =>
+            node.sendWithParams(requestType, nodeIds, sendParams, fileKey as string | undefined, idleMs),
         };
-        const result = await executeSaveScreenshots(sender, items, format, scale, clip);
-        return {
-          content: [{ type: "text", text: JSON.stringify(result) }],
-        };
+        const result = await runServerSideTool(tool, sender, stripUndefined(params));
+        return { content: [{ type: "text", text: JSON.stringify(result) }] };
       } catch (err) {
         return {
-          content: [
-            {
-              type: "text",
-              text: err instanceof Error ? err.message : String(err),
-            },
-          ],
+          content: [{ type: "text", text: err instanceof Error ? err.message : String(err) }],
           isError: true,
         };
       }
+    };
+
+  server.tool(
+    "save_screenshots",
+    "Export nodes and save them straight to disk, one node at a time (PNG/SVG/JPG/PDF). Returns metadata only. Hidden nodes and existing files are reported rather than failing the batch; the run stops early if Figma's exports stall. When multiple files are connected, specify fileKey.",
+    toolInputSchemas.save_screenshots.shape,
+    serverSideTool("save_screenshots")
+  );
+
+  server.tool(
+    "export_assets",
+    "Export every matching layer in a frame to a folder, e.g. all icon instances as SVG, exactly as Figma draws them on that screen, overrides included. Scans rootId with the filter (types, namePattern, size, stopAtMatch, default true) or takes explicit nodeIds; skips hidden layers; writes identical exports once; writes manifest.json with each node's bounds relative to rootId and its file. Stops early and says why if exports stall.",
+    toolInputSchemas.export_assets.shape,
+    serverSideTool("export_assets")
+  );
+
+  server.tool(
+    "health",
+    "Diagnose the bridge: server version and role, connected files, and a live test export from the plugin. Use it when calls time out: it tells a dead plugin apart from Figma pausing exports because its window is minimized or covered.",
+    toolInputSchemas.health.shape,
+    async ({ nodeId, fileKey }): Promise<ToolResult> => {
+      let files = node.listConnectedFiles();
+      if (files === undefined) {
+        try {
+          files = await new Follower(`http://localhost:${port}`).listConnectedFiles();
+        } catch {
+          files = [];
+        }
+      }
+      let plugin: unknown;
+      try {
+        const resp = await node.sendWithParams(
+          "health",
+          undefined,
+          stripUndefined({ nodeId }),
+          fileKey,
+          20_000
+        );
+        plugin = resp.error ? { error: resp.error } : resp.data;
+      } catch (err) {
+        plugin = { error: err instanceof Error ? err.message : String(err) };
+      }
+      const report = {
+        server: { version: VERSION, role: node.roleName, port, cwd: process.cwd() },
+        files,
+        plugin,
+      };
+      return { content: [{ type: "text", text: JSON.stringify(report) }] };
     }
+  );
+
+  server.tool(
+    "get_pages",
+    "List the file's pages and which one Figma currently shows. When multiple files are connected, specify fileKey.",
+    toolInputSchemas.get_pages.shape,
+    async ({ fileKey }): Promise<ToolResult> =>
+      renderResponse(() => node.send("get_pages", undefined, fileKey))
+  );
+
+  server.tool(
+    "navigate_to_page",
+    "Switch Figma to a page by pageId or exact pageName. Reads and exports work across pages without this; use it to change what get_document and get_selection see.",
+    toolInputSchemas.navigate_to_page.shape,
+    async ({ fileKey, ...params }): Promise<ToolResult> =>
+      renderResponse(() =>
+        node.sendWithParams("navigate_to_page", undefined, stripUndefined(params), fileKey)
+      )
+  );
+
+  server.tool(
+    "get_nodes",
+    "Fetch several nodes in one call. Each result carries its tree (optionally depth-limited), absolute bounds, auto-layout sizing, instance component properties and mixed-text segments. A node that fails is reported in place instead of failing the call. includeHidden keeps layers the design turns off.",
+    toolInputSchemas.get_nodes.shape,
+    async ({ nodeIds, fileKey, ...params }): Promise<ToolResult> =>
+      renderResponse(() =>
+        node.sendWithParams("get_nodes", nodeIds, stripUndefined(params), fileKey)
+      )
+  );
+
+  server.tool(
+    "scan_nodes",
+    "Search a node's subtree and return a flat list of matches: id, name, type, visibility, layer path, absolute bounds, bounds relative to the root, text and font for TEXT, component name for INSTANCE. Filter by types, namePattern, textPattern, size, maxDepth; stopAtMatch keeps an icon instance whole. Hidden layers are skipped unless visibleOnly is false.",
+    toolInputSchemas.scan_nodes.shape,
+    async ({ fileKey, ...params }): Promise<ToolResult> =>
+      renderResponse(() =>
+        node.sendWithParams("scan_nodes", undefined, stripUndefined(params), fileKey, 120_000)
+      )
   );
 }
 
-/**
- * Saves screenshots for multiple nodes to the local filesystem in batch.
- * @param sender - Sender that forwards get_screenshot requests to the plugin.
- * @param items - Screenshot save operations to execute.
- * @param format - Default export format override.
- * @param scale - Default export scale override for raster formats.
- * @param clip - Default clipping override for saved screenshots.
- * @returns Aggregate result with per-item outcomes.
- */
-export async function executeSaveScreenshots(
-  sender: ScreenshotSender,
-  items: SaveScreenshotItemInput[],
-  format?: ExportFormat,
-  scale?: number,
-  clip?: boolean
-): Promise<{
-  total: number;
-  succeeded: number;
-  failed: number;
-  hasErrors: boolean;
-  results: SaveScreenshotItemResult[];
-}> {
-  const results: SaveScreenshotItemResult[] = [];
-
-  for (const [index, item] of items.entries()) {
-    const result = await saveScreenshotItemToFile(
-      sender,
-      item,
-      index,
-      process.cwd(),
-      format,
-      scale,
-      clip
-    );
-    results.push(result);
-  }
-
-  const succeeded = results.filter((r) => r.success).length;
-  const failed = results.length - succeeded;
-
-  return {
-    total: results.length,
-    succeeded,
-    failed,
-    hasErrors: failed > 0,
-    results,
-  };
+/** Drops undefined fields so the plugin only sees what the caller set. */
+function stripUndefined<T extends Record<string, unknown>>(value: T): Partial<T> {
+  return Object.fromEntries(Object.entries(value).filter(([, v]) => v !== undefined)) as Partial<T>;
 }
 
 /**
@@ -708,23 +705,6 @@ function parseToolInput<T>(
       isError: true,
     },
   };
-}
-
-/**
- * Resolves an output path relative to the workspace and ensures it stays inside it.
- * @param outputPath - Relative or absolute output path.
- * @param workspaceRoot - Root directory that must contain the resolved path.
- * @returns Absolute path inside the workspace root.
- */
-function resolveAndValidateOutputPath(outputPath: string, workspaceRoot: string): string {
-  const resolvedRoot = path.resolve(workspaceRoot);
-  const resolvedPath = path.resolve(resolvedRoot, outputPath);
-  const relativePath = path.relative(resolvedRoot, resolvedPath);
-  const escapesRoot = relativePath.startsWith("..") || path.isAbsolute(relativePath);
-  if (escapesRoot) {
-    throw new Error(`outputPath must be inside the MCP server working directory: ${resolvedRoot}`);
-  }
-  return resolvedPath;
 }
 
 /**
@@ -978,182 +958,3 @@ async function readBoundedResponse(resp: Response, maxBytes: number): Promise<Bu
   return Buffer.concat(chunks, total);
 }
 
-/**
- * Infers an export format from a file path extension.
- * @param outputPath - Output file path.
- * @returns Export format, or null if the extension is unrecognized.
- */
-function inferFormatFromPath(outputPath: string): ExportFormat | null {
-  const ext = path.extname(outputPath).toLowerCase();
-  switch (ext) {
-    case ".png":
-      return "PNG";
-    case ".svg":
-      return "SVG";
-    case ".jpg":
-    case ".jpeg":
-      return "JPG";
-    case ".pdf":
-      return "PDF";
-    default:
-      return null;
-  }
-}
-
-/**
- * Resolves the final export format, ensuring it does not conflict with the file extension.
- * @param format - Explicitly requested format.
- * @param inferredFormat - Format inferred from the output path extension.
- * @returns Resolved export format.
- */
-function resolveExportFormat(
-  format: ExportFormat | undefined,
-  inferredFormat: ExportFormat | null
-): ExportFormat {
-  if (format && inferredFormat && format !== inferredFormat) {
-    throw new Error(`format ${format} conflicts with outputPath extension (${inferredFormat})`);
-  }
-  return format ?? inferredFormat ?? "PNG";
-}
-
-/**
- * Extracts and validates the first screenshot export from plugin response data.
- * @param data - Plugin response payload.
- * @returns Validated screenshot export object.
- */
-function getSingleScreenshotExport(data: unknown): ScreenshotExport {
-  if (!data || typeof data !== "object") {
-    throw new Error("Invalid screenshot response from plugin");
-  }
-
-  const exports = (data as { exports?: unknown }).exports;
-  if (!Array.isArray(exports) || exports.length === 0) {
-    throw new Error("No screenshot export returned by plugin");
-  }
-
-  const first = exports[0];
-  if (
-    !first ||
-    typeof first !== "object" ||
-    typeof (first as { nodeId?: unknown }).nodeId !== "string" ||
-    typeof (first as { nodeName?: unknown }).nodeName !== "string" ||
-    typeof (first as { base64?: unknown }).base64 !== "string" ||
-    typeof (first as { width?: unknown }).width !== "number" ||
-    typeof (first as { height?: unknown }).height !== "number"
-  ) {
-    throw new Error("Malformed screenshot export payload");
-  }
-
-  const screenshot = first as ScreenshotExport;
-  return screenshot;
-}
-
-/**
- * Saves a single screenshot item to the local filesystem.
- * @param sender - Sender that forwards get_screenshot requests to the plugin.
- * @param item - Screenshot save request.
- * @param index - Index of this item in the batch.
- * @param workspaceRoot - Root directory for resolving output paths.
- * @param defaultFormat - Default export format override.
- * @param defaultScale - Default export scale override.
- * @param defaultClip - Default clipping override.
- * @returns Result of the save operation.
- */
-async function saveScreenshotItemToFile(
-  sender: ScreenshotSender,
-  item: SaveScreenshotItemInput,
-  index: number,
-  workspaceRoot: string,
-  defaultFormat?: ExportFormat,
-  defaultScale?: number,
-  defaultClip?: boolean
-): Promise<SaveScreenshotItemResult> {
-  let resolvedOutputPath = item.outputPath;
-
-  try {
-    resolvedOutputPath = resolveAndValidateOutputPath(item.outputPath, workspaceRoot);
-    const inferredFormat = inferFormatFromPath(resolvedOutputPath);
-    const resolvedFormat = resolveExportFormat(item.format ?? defaultFormat, inferredFormat);
-    const resolvedScale = resolveScale(item.scale, defaultScale);
-    const resolvedClip = item.clip ?? defaultClip;
-
-    const params: Record<string, unknown> = { format: resolvedFormat };
-    if (resolvedScale !== undefined) {
-      params.scale = resolvedScale;
-    }
-    if (resolvedClip !== undefined) {
-      params.clip = resolvedClip;
-    }
-
-    const resp = await sender.sendWithParams("get_screenshot", [item.nodeId], params);
-    if (resp.error) {
-      throw new Error(resp.error);
-    }
-
-    const screenshotExport = getSingleScreenshotExport(resp.data);
-    const bytesWritten = await writeBase64ToFile(screenshotExport.base64, resolvedOutputPath);
-
-    return {
-      index,
-      nodeId: screenshotExport.nodeId,
-      nodeName: screenshotExport.nodeName,
-      outputPath: resolvedOutputPath,
-      format: resolvedFormat,
-      width: screenshotExport.width,
-      height: screenshotExport.height,
-      bytesWritten,
-      success: true,
-    };
-  } catch (err) {
-    return {
-      index,
-      nodeId: item.nodeId,
-      outputPath: resolvedOutputPath,
-      success: false,
-      error: err instanceof Error ? err.message : String(err),
-    };
-  }
-}
-
-/**
- * Writes base64-encoded bytes to a file, creating parent directories as needed.
- * @param base64 - Base64-encoded file contents.
- * @param outputPath - Destination file path.
- * @returns Number of bytes written.
- */
-async function writeBase64ToFile(base64: string, outputPath: string): Promise<number> {
-  const bytes = Buffer.from(base64, "base64");
-  await mkdir(path.dirname(outputPath), { recursive: true });
-  try {
-    await writeFile(outputPath, bytes, { flag: "wx" });
-  } catch (err) {
-    if (isNodeError(err) && err.code === "EEXIST") {
-      throw new Error(`File already exists at outputPath: ${outputPath}`);
-    }
-    throw err;
-  }
-  return bytes.length;
-}
-
-/**
- * Resolves the effective screenshot scale from item and default values.
- * @param itemScale - Scale specified for the item.
- * @param defaultScale - Default scale for the batch.
- * @returns Positive scale value, or undefined if not applicable.
- */
-function resolveScale(itemScale?: number, defaultScale?: number): number | undefined {
-  const resolvedScale = itemScale ?? defaultScale;
-  if (resolvedScale === undefined || resolvedScale <= 0) {
-    return undefined;
-  }
-  return resolvedScale;
-}
-
-/**
- * Type guard that checks whether a value is a NodeJS error with an optional code.
- * @param err - Value to check.
- * @returns True when the value is an Error instance.
- */
-function isNodeError(err: unknown): err is NodeJS.ErrnoException {
-  return err instanceof Error;
-}
