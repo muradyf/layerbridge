@@ -35,6 +35,8 @@ export interface ConnectedFile {
   fileKey: string;
   fileName: string;
   pluginVersion?: string;
+  /** Which Figma editor the plugin runs in: figma, dev, figjam or slides. */
+  editorType?: string;
   connectedSecondsAgo?: number;
 }
 

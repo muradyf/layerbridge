@@ -8,6 +8,7 @@
  * hexToRgba, toHex, …) are exported from ./features.
  */
 import { handleFeatureRequest, type Request, type Response } from "./features";
+import { handleBoardsRequest } from "./boards";
 import { handleCodegenRequest } from "./codegen";
 import { handleSyncRequest } from "./sync";
 
@@ -15,6 +16,7 @@ const MODULE_HANDLERS: Array<(request: Request) => Promise<Response | null>> = [
   handleFeatureRequest,
   handleSyncRequest,
   handleCodegenRequest,
+  handleBoardsRequest,
 ];
 
 export const handleModuleRequest = async (request: Request): Promise<Response | null> => {

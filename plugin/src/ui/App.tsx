@@ -18,6 +18,7 @@ type PluginStatus = {
   selectionCount: number;
   pageName?: string;
   pluginVersion?: string;
+  editorType?: string;
 };
 
 type Phase = "waiting" | "connecting" | "connected" | "disconnected" | "replaced";
@@ -170,6 +171,7 @@ export default function App() {
         fileKey: status.fileKey,
         fileName: status.fileName,
         pluginVersion: status.pluginVersion ?? "unknown",
+        editorType: status.editorType ?? "unknown",
       });
       const ws = new WebSocket(`${wsUrl(port)}?${query.toString()}`);
       socketRef.current = ws;
@@ -232,7 +234,7 @@ export default function App() {
         socketRef.current = null;
       }
     };
-  }, [status.fileKey, status.fileName, status.pluginVersion, attempt, port]);
+  }, [status.fileKey, status.fileName, status.pluginVersion, status.editorType, attempt, port]);
 
   const selection =
     status.selectionCount === 1 ? "1 layer" : `${status.selectionCount} layers`;

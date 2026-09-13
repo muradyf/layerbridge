@@ -8,6 +8,7 @@ import { addLayersToFrame } from "../html-figma/figma";
 import { handleExtraRequest } from "./extras";
 import { handleModuleRequest } from "./modules";
 import { PLUGIN_VERSION } from "./robust";
+import { editorRefusal, withEditorHint } from "./editors";
 
 type RequestType =
   | "get_document"
@@ -129,6 +130,7 @@ const sendStatus = () => {
       selectionCount: figma.currentPage.selection.length,
       pageName: figma.currentPage.name,
       pluginVersion: PLUGIN_VERSION,
+      editorType: figma.editorType,
     },
   });
 };
@@ -386,6 +388,8 @@ const requireEditorMode = (toolName: RequestType): void => {
 
 const handleRequest = async (request: ServerRequest): Promise<PluginResponse> => {
   try {
+    const refusal = editorRefusal(request.type, figma.editorType);
+    if (refusal) throw new Error(refusal);
     if (EDIT_REQUEST_TYPES.has(request.type)) {
       requireEditorMode(request.type);
     }
@@ -1855,7 +1859,11 @@ const handleRequest = async (request: ServerRequest): Promise<PluginResponse> =>
     return {
       type: request.type,
       requestId: request.requestId,
-      error: error instanceof Error ? error.message : String(error),
+      error: withEditorHint(
+        request.type,
+        error instanceof Error ? error.message : String(error),
+        figma.editorType
+      ),
     };
   }
 };
