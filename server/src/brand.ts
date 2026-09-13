@@ -13,6 +13,13 @@ export const DISPLAY_NAME = "Figma Bridge";
 /** npm package name, also the `bin` and the `npx` argument. */
 export const PACKAGE_NAME = "figma-bridge-ours";
 
+/**
+ * What client configs pass to `npx -y`. `@latest` so npx re-resolves on each
+ * start instead of running whatever version it cached first — the server and
+ * the Figma plugin copy have to move together (`setup` refreshes the plugin).
+ */
+export const NPX_SPEC = `${PACKAGE_NAME}@latest`;
+
 /** Key under which MCP clients register the server (`claude mcp add <key>`). */
 export const SERVER_KEY = "figma-bridge";
 

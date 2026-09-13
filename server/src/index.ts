@@ -12,16 +12,21 @@ import { Election } from "./election.js";
 import { registerTools } from "./tools.js";
 import { VERSION } from "./version.js";
 import { ALLOWED_PORTS } from "./auth.js";
+import { SERVER_KEY } from "./brand.js";
+import { isCliInvocation, runCli } from "./cli.js";
+import { DEFAULT_PORT } from "./setup.js";
 
 // 1995, not upstream's 1994: 1994 is also figma-mcp-go's and gethopp's port,
 // and sharing it made the servers' leader elections and plugins collide.
 // Figma only lets the plugin reach ports its manifest lists, so the choice is
 // 1995–1999; the plugin panel's Port setting must match.
-export const DEFAULT_PORT = 1995;
+export { DEFAULT_PORT };
 
 function resolvePort(): number {
   const raw = process.env.FIGMA_BRIDGE_PORT;
-  if (raw === undefined) return DEFAULT_PORT;
+  // Empty counts as unset: config UIs (e.g. a Claude Desktop extension's
+  // settings) can pass an empty string for a field left blank.
+  if (raw === undefined || raw.trim() === "") return DEFAULT_PORT;
   const port = Number(raw.trim());
   if (!Number.isInteger(port) || !ALLOWED_PORTS.includes(port)) {
     // An explicitly set but unusable value must fail loudly: the plugin could
@@ -31,9 +36,9 @@ function resolvePort(): number {
   }
   return port;
 }
-const PORT = resolvePort();
 
 async function main(): Promise<void> {
+  const PORT = resolvePort();
   const node = new Node(PORT);
   const election = new Election(PORT, node);
   await election.start();
@@ -79,7 +84,7 @@ async function main(): Promise<void> {
   });
 
   const server = new McpServer({
-    name: "figma-bridge",
+    name: SERVER_KEY,
     version: VERSION,
   });
 
@@ -91,7 +96,23 @@ async function main(): Promise<void> {
   await server.connect(transport);
 }
 
-main().catch((err) => {
-  console.error("Fatal error:", err);
-  process.exit(1);
-});
+const argv = process.argv.slice(2);
+if (isCliInvocation(argv)) {
+  // A subcommand (setup, doctor, --version, --help): stdout is the user's
+  // terminal here, not an MCP transport.
+  runCli(argv).then(
+    (code) => process.exit(code),
+    (err) => {
+      console.error(err instanceof Error ? err.message : err);
+      process.exit(1);
+    }
+  );
+} else {
+  // Anything else starts the stdio MCP server, as before. Unknown arguments are
+  // ignored rather than fatal, so a client passing extra args still connects.
+  if (argv.length > 0) console.error(`Ignoring arguments ${JSON.stringify(argv)}; run with --help for commands`);
+  main().catch((err) => {
+    console.error("Fatal error:", err);
+    process.exit(1);
+  });
+}
