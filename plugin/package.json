@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently \"vite build --watch\" \"vite build --watch -c vite.config.main.ts\"",
-    "build": "vite build && vite build -c vite.config.main.ts",
+    "build": "node scripts/build.mjs",
     "test": "bun test src"
   },
   "dependencies": {

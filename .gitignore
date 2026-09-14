@@ -176,6 +176,9 @@ binaries/
 # Server build output
 server/dist/
 
+# Plugin build staging (scripts/build.mjs renames it into dist/)
+plugin/.dist-next/
+
 # Editor/IDE
 .idea/
 .vscode/
