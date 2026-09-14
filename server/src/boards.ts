@@ -142,7 +142,10 @@ export const BOARDS_PLUGIN_TOOLS: Record<string, PluginToolDef> = {
     schema: z.object({
       row: z.number().int().min(0).optional(),
       index: z.number().int().min(0).optional().describe("Position within the row; needs row"),
-      name: z.string().optional(),
+      name: z
+        .string()
+        .optional()
+        .describe("Layer name. Figma Slides renames slides to their position number when the deck changes, so it rarely lasts; identify slides by id"),
       fileKey,
     }),
     editing: true,
