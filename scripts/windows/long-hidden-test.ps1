@@ -10,9 +10,10 @@ param(
   [int]$Minutes = 7,
   [string]$SmallNode = "I2071:22581;649:9433;280:3364",
   [string]$BigNode = "2071:22565",
-  # Must sit inside the bridge server's working directory (or FIGMA_BRIDGE_OUTPUT_ROOTS).
-  [string]$OutDir = "C:\Users\Admin\Projects\portfolio\.scratch\figma-long-test",
-  [string]$Rpc = "$PSScriptRoot\rpc.mjs"
+  # Relative to where you run this: rpc.mjs writes exports from its own
+  # process, and only inside its working directory (or FIGMA_BRIDGE_OUTPUT_ROOTS).
+  [string]$OutDir = ".scratch\figma-long-test",
+  [string]$Rpc = "$PSScriptRoot\..\rpc.mjs"
 )
 
 Add-Type @"
