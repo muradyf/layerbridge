@@ -37,6 +37,10 @@ export interface ConnectedFile {
   pluginVersion?: string;
   /** Which Figma editor the plugin runs in: figma, dev, figjam or slides. */
   editorType?: string;
+  /** Which plugin opened the connection (the design and FigJam/Slides manifests share code). */
+  pluginId?: string;
+  /** The plugin panel instance; it changes when Figma reloads the plugin. */
+  panel?: string;
   connectedSecondsAgo?: number;
 }
 

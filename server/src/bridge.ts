@@ -35,8 +35,18 @@ interface ConnectionEntry {
   fileName: string;
   pluginVersion: string;
   editorType?: string;
+  client: PluginClient;
   connectedAt: number;
   isAlive: boolean;
+}
+
+/** Which plugin and panel opened a connection, as the plugin reports it. */
+interface PluginClient {
+  pluginId?: string;
+  /** The port the panel had selected when it dialled. */
+  uiPort?: string;
+  /** A new value per panel instance, so reloads are visible. */
+  uiSession?: string;
 }
 
 export class Bridge {
@@ -79,6 +89,9 @@ export class Bridge {
       fileName = "Unknown",
       pluginVersion = "unknown",
       editorType,
+      pluginId,
+      uiPort,
+      uiSession,
     } = Object.fromEntries(url.searchParams);
 
     if (!fileKey) {
@@ -88,7 +101,7 @@ export class Bridge {
     }
 
     this.wss.handleUpgrade(request, socket, head, (ws) => {
-      this.handleConnection(ws, fileKey, fileName, pluginVersion, editorType);
+      this.handleConnection(ws, fileKey, fileName, pluginVersion, editorType, { pluginId, uiPort, uiSession });
     });
   }
 
@@ -97,8 +110,10 @@ export class Bridge {
     fileKey: string,
     fileName: string,
     pluginVersion: string,
-    editorType?: string
+    editorType: string | undefined,
+    client: PluginClient
   ): void {
+    const who = [client.pluginId, client.uiSession && `panel ${client.uiSession}`].filter(Boolean).join(", ");
     // A newer window for the same file wins. The close code tells the old
     // window not to reconnect — without it two windows evict each other forever.
     const existing = this.connections.get(fileKey);
@@ -111,10 +126,11 @@ export class Bridge {
       fileName,
       pluginVersion,
       editorType,
+      client,
       connectedAt: Date.now(),
       isAlive: true,
     });
-    console.error(`Plugin connected: ${fileName} (${fileKey}) v${pluginVersion}`);
+    console.error(`Plugin connected: ${fileName} (${fileKey}) v${pluginVersion}${who ? ` [${who}]` : ""}`);
 
     ws.on("pong", () => {
       const entry = this.connections.get(fileKey);
@@ -150,7 +166,7 @@ export class Bridge {
       const current = this.connections.get(fileKey);
       if (current?.ws === ws) {
         this.connections.delete(fileKey);
-        console.error(`Plugin disconnected: ${fileName} (${fileKey})`);
+        console.error(`Plugin disconnected: ${fileName} (${fileKey})${who ? ` [${who}]` : ""}`);
       }
       this.rejectPendingForSocket(
         ws,
@@ -235,6 +251,8 @@ export class Bridge {
       fileName: entry.fileName,
       pluginVersion: entry.pluginVersion,
       ...(entry.editorType ? { editorType: entry.editorType } : {}),
+      ...(entry.client.pluginId ? { pluginId: entry.client.pluginId } : {}),
+      ...(entry.client.uiSession ? { panel: entry.client.uiSession } : {}),
       connectedSecondsAgo: Math.round((Date.now() - entry.connectedAt) / 1000),
     }));
   }

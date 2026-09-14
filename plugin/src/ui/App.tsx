@@ -19,7 +19,11 @@ type PluginStatus = {
   pageName?: string;
   pluginVersion?: string;
   editorType?: string;
+  pluginId?: string;
 };
+
+/** Identifies this panel instance in server logs, so a reload shows up as a new session. */
+const UI_SESSION = Math.random().toString(36).slice(2, 8);
 
 type Phase = "waiting" | "connecting" | "connected" | "disconnected" | "replaced";
 
@@ -77,6 +81,10 @@ export default function App() {
   });
   const [activity, setActivity] = useState<Activity>({ text: "Idle", tone: "idle" });
   const socketRef = useRef<WebSocket | null>(null);
+  // The port of the socket that is actually open, which is what the status
+  // shows; `port` is only the one selected.
+  const [openPort, setOpenPort] = useState<number | null>(null);
+  const openPortRef = useRef<number | null>(null);
   const reconnectTimer = useRef<number | null>(null);
   const inFlight = useRef(new Map<string, string>());
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -166,23 +174,36 @@ export default function App() {
         previous.close();
       }
 
-      setPhase((p) => (p === "connected" ? p : "connecting"));
+      // Keep "Connected" through a reconnect to the same port; a different
+      // port is a different server, so it must not inherit the old status.
+      setPhase((p) => (p === "connected" && openPortRef.current === port ? p : "connecting"));
       const query = new URLSearchParams({
         fileKey: status.fileKey,
         fileName: status.fileName,
         pluginVersion: status.pluginVersion ?? "unknown",
         editorType: status.editorType ?? "unknown",
+        pluginId: status.pluginId ?? "unknown",
+        uiPort: String(port),
+        uiSession: UI_SESSION,
       });
-      const ws = new WebSocket(`${wsUrl(port)}?${query.toString()}`);
+      const url = `${wsUrl(port)}?${query.toString()}`;
+      console.info(`[bridge ${UI_SESSION}] connecting to port ${port}`);
+      const ws = new WebSocket(url);
       socketRef.current = ws;
 
       ws.onopen = () => {
+        console.info(`[bridge ${UI_SESSION}] open on port ${port}`);
+        openPortRef.current = port;
+        setOpenPort(port);
         setPhase("connected");
         post({ type: "ui-ready" });
       };
 
       ws.onclose = (event) => {
+        console.info(`[bridge ${UI_SESSION}] closed on port ${port} (code ${event.code})`);
         if (disposed || socketRef.current !== ws) return;
+        openPortRef.current = null;
+        setOpenPort(null);
         inFlight.current.clear();
         refreshActivity();
         // Reconnecting after being replaced is what made two plugin windows
@@ -229,22 +250,26 @@ export default function App() {
       }
       const ws = socketRef.current;
       if (ws) {
+        console.info(`[bridge ${UI_SESSION}] closing the port-${port} socket (settings changed)`);
         ws.onopen = ws.onclose = ws.onerror = ws.onmessage = null;
         ws.close();
         socketRef.current = null;
+        setOpenPort(null);
       }
     };
   }, [status.fileKey, status.fileName, status.pluginVersion, status.editorType, attempt, port]);
 
   const selection =
     status.selectionCount === 1 ? "1 layer" : `${status.selectionCount} layers`;
+  const statusLabel =
+    phase === "connected" && openPort !== null ? `${PHASE_LABEL.connected} · ${openPort}` : PHASE_LABEL[phase];
 
   return (
     <div ref={panelRef} className={`panel ${collapsed ? "collapsed" : ""}`}>
       <div className="header">
-        <div className="status" title={PHASE_LABEL[phase]}>
+        <div className="status" title={statusLabel}>
           <span className={`dot ${phase}`} />
-          <span className="status-label">{PHASE_LABEL[phase]}</span>
+          <span className="status-label">{statusLabel}</span>
         </div>
         <button
           type="button"

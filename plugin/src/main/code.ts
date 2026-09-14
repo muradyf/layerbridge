@@ -131,6 +131,8 @@ const sendStatus = () => {
       pageName: figma.currentPage.name,
       pluginVersion: PLUGIN_VERSION,
       editorType: figma.editorType,
+      // Two manifests share this code; the id says which plugin is running.
+      pluginId: figma.pluginId,
     },
   });
 };
