@@ -2,7 +2,9 @@
 
 Derived from [gethopp/figma-mcp-bridge](https://github.com/gethopp/figma-mcp-bridge) at `ef0cf04` (MIT).
 
-## 0.3.0 — unreleased
+## 0.3.0 — 2026-09-14
+
+First release as **Layerbridge** (npm `layerbridge`), published by hand; later versions come from the release workflow through npm trusted publishing.
 
 ### Added
 - **`check_accessibility`:** WCAG contrast (computed from layers, or sampled from a render over images, gradients, blurs and blends), target size with the 2.5.8 spacing exception, small text; score, variable/style suggestions, JSON and Markdown reports, re-runnable Figma annotations.

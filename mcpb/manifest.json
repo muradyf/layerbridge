@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "layerbridge",
   "display_name": "Layerbridge",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Read, edit and export the Figma file open in the bridge plugin. No REST API, no rate limits.",
   "long_description": "A local MCP server for the Figma plugin of the same name. Import the plugin from its manifest once (run `npx -y layerbridge@latest setup` to get the path), open it in the Figma file you want Claude to work on, and keep its window open. Everything stays on your computer.",
   "author": {

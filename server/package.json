@@ -1,6 +1,6 @@
 {
   "name": "layerbridge",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Local MCP server and plugin that let AI tools read, edit and export the open Figma file — no REST API, no rate limits",
   "mcpName": "io.github.muradyf/layerbridge",
   "type": "module",

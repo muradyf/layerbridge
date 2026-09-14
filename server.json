@@ -3,7 +3,7 @@
   "name": "io.github.muradyf/layerbridge",
   "title": "Layerbridge",
   "description": "Read, edit and export the Figma file open in a local plugin. No REST API, no rate limits.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "repository": {
     "url": "https://github.com/muradyf/layerbridge",
     "source": "github",
@@ -15,7 +15,7 @@
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "layerbridge",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "transport": {
         "type": "stdio"
       },
