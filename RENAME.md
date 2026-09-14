@@ -27,6 +27,6 @@ Unchanged on purpose: the `FIGMA_BRIDGE_*` environment variables (configuration 
 ## What the rename means for anyone already running it
 
 - **Servers:** the token folder moved, so every running server must restart onto this version together; an old leader and a new follower cannot authenticate to each other.
-- **Figma:** the plugin ids changed, so Figma treats both manifests as new development plugins. Import `plugin/manifest.json` and `plugin/manifest.boards.json` again and remove the old "Figma Bridge (ours)" entries.
+- **Figma:** the plugin ids changed. A development plugin imported from the same manifest path picked up the new id on its next reload without a re-import (seen 2026-09-14: it reconnected as `layerbridge`). If the menu still shows "Figma Bridge (ours)", import `plugin/manifest.json` and `plugin/manifest.boards.json` again.
 - **AI tools:** an existing server entry keyed `figma-bridge` keeps working; re-run `npx -y layerbridge@latest setup` to get the new key and plugin folder.
 - **npm / MCP Registry:** nothing was published under the old names, so there is nothing to deprecate.
