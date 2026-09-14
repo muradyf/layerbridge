@@ -5,10 +5,12 @@
  * html-figma (sergcen/html-to-figma, MIT) publishes its browser serializer as
  * unbundled ES modules that import `file-type`, so it cannot be injected as-is.
  * Its output format is the one the plugin's vendored renderer (same package,
- * 0.3.1) reads.
+ * 0.3.1) reads. patches/html-figma@0.3.1.patch adds text fontWeight/fontStyle
+ * and passes gradients through as `cssBackgroundImage`, converted below.
  */
 import { htmlToFigma } from "html-figma/browser/html-to-figma";
 import { processImages } from "html-figma/browser/dom-utils";
+import { gradientPaints } from "./css-gradient.js";
 
 const toBase64 = (bytes) => {
   let binary = "";
@@ -20,7 +22,8 @@ const toBase64 = (bytes) => {
 
 window.__figmaBridgeHtmlToFigma = async (selector) => {
   const root = htmlToFigma(selector || "body");
-  if (!root || Array.isArray(root)) return null;
+  if (!root || Array.isArray(root)) return { layers: null, notes: [] };
+  const notes = [];
   const layers = [];
   const collect = (layer) => {
     if (!layer || typeof layer !== "object") return;
@@ -35,6 +38,14 @@ window.__figmaBridgeHtmlToFigma = async (selector) => {
     for (const fill of Array.isArray(layer.fills) ? layer.fills : []) {
       if (fill && fill.intArr instanceof Uint8Array) fill.intArr = toBase64(fill.intArr);
     }
+    if (layer.cssBackgroundImage) {
+      const { paints, skipped } = gradientPaints(layer.cssBackgroundImage, layer.width, layer.height);
+      // Gradients go above the background colour. A url() image mixed into the
+      // same background-image stays below them whatever the CSS order.
+      layer.fills = [...(Array.isArray(layer.fills) ? layer.fills : []), ...paints];
+      for (const css of skipped) notes.push(`Skipped a background the importer can't draw yet: ${css}`);
+      delete layer.cssBackgroundImage;
+    }
   }
-  return root;
+  return { layers: root, notes };
 };

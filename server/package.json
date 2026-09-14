@@ -55,5 +55,8 @@
   },
   "engines": {
     "node": ">=20.0.0"
+  },
+  "patchedDependencies": {
+    "html-figma@0.3.1": "patches/html-figma@0.3.1.patch"
   }
 }

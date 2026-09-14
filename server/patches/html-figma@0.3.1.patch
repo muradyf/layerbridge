@@ -1,0 +1,35 @@
+diff --git a/browser/element-to-figma.js b/browser/element-to-figma.js
+index a24892f1b0a2270bae4d154e4e754c2d47e10174..41ce3a2db053600ae0ca8e52ecff293b2cf9bf08 100644
+--- a/browser/element-to-figma.js
++++ b/browser/element-to-figma.js
+@@ -77,6 +77,11 @@ export const elementToFigma = (el, pseudo) => {
+     else {
+         rectNode.borders = getBorderPin(rect, computedStyle);
+     }
++    // figma-bridge: gradients become paints in browser/css-gradient.js.
++    if (computedStyle.backgroundImage &&
++        computedStyle.backgroundImage.includes('gradient(')) {
++        rectNode.cssBackgroundImage = computedStyle.backgroundImage;
++    }
+     if (computedStyle.backgroundImage &&
+         computedStyle.backgroundImage !== 'none') {
+         const urlMatch = computedStyle.backgroundImage.match(/url\(['"]?(.*?)['"]?\)/);
+diff --git a/browser/text-to-figma.js b/browser/text-to-figma.js
+index 007a06009dcbbbb337fe4a418e771e27e6375413..332ba240d9bc10083d28bfdb0c3d94299000504e 100644
+--- a/browser/text-to-figma.js
++++ b/browser/text-to-figma.js
+@@ -104,6 +104,14 @@ export const textToFigma = (node, { fromTextInput = false } = {}) => {
+         // const font = computedStyles.fontFamily.split(/\s*,\s*/);
+         textNode.fontFamily = computedStyles.fontFamily;
+     }
++    // figma-bridge: weight and italics; the plugin maps them to a style name.
++    const fontWeight = parseInt(computedStyles.fontWeight, 10);
++    if (isFinite(fontWeight)) {
++        textNode.fontWeight = fontWeight;
++    }
++    if (/^(italic|oblique)/.test(computedStyles.fontStyle || '')) {
++        textNode.fontStyle = 'italic';
++    }
+     if (computedStyles.textDecoration) {
+         if (computedStyles.textDecoration === 'underline' ||
+             computedStyles.textDecoration === 'strikethrough') {

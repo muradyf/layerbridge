@@ -21,6 +21,9 @@
       },
     },
   },
+  "patchedDependencies": {
+    "html-figma@0.3.1": "patches/html-figma@0.3.1.patch",
+  },
   "packages": {
     "@hono/node-server": ["@hono/node-server@1.19.9", "", { "peerDependencies": { "hono": "^4" } }, "sha512-vHL6w3ecZsky+8P5MD+eFfaGTyCeOHUIFYMGpQGbrBTSmNNoxv0if69rEZ5giu36weC5saFuznL411gRX7bJDw=="],
 

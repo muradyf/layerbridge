@@ -217,7 +217,7 @@ const importUrl: ServerToolDef = {
     const url = checkUrl(params.url as string);
     const vp = (params.viewport as Viewport | undefined) ?? { width: 1440, height: 900 };
     const selector = params.selector as string | undefined;
-    const layers = await serializeUrl(url, vp, selector);
+    const { layers, notes } = await serializeUrl(url, vp, selector);
     if (!layers || typeof layers.type !== "string") {
       throw new Error(`Nothing to import: ${selector ? `no visible element matches ${selector}` : "the page has no visible content"} at ${url.href}`);
     }
@@ -229,7 +229,7 @@ const importUrl: ServerToolDef = {
       ...(params.x !== undefined ? { x: params.x } : {}),
       ...(params.y !== undefined ? { y: params.y } : {}),
     }, 300_000);
-    return { url: url.href, viewport: vp, ...(selector ? { selector } : {}), ...result };
+    return { url: url.href, viewport: vp, ...(selector ? { selector } : {}), ...result, ...(notes.length ? { notes } : {}) };
   },
 };
 

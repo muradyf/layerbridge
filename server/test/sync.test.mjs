@@ -303,8 +303,8 @@ const PAGE = `<!doctype html><html><head><style>html,body{margin:0;background:#f
   #badge{position:absolute;left:40px;top:20px;width:20px;height:20px;background:rgb(${BLUE.join(",")})}</style></head>
   <body><div id="card" style="width:80px;height:60px;position:relative"><div id="badge"></div><p style="margin:0">Hi</p></div></body></html>`;
 
-const withPageServer = async (fn) => {
-  const srv = http.createServer((_req, res) => res.writeHead(200, { "Content-Type": "text/html" }).end(PAGE));
+const withPageServer = async (fn, html = PAGE) => {
+  const srv = http.createServer((_req, res) => res.writeHead(200, { "Content-Type": "text/html" }).end(html));
   await new Promise((resolve) => srv.listen(0, "127.0.0.1", resolve));
   try {
     return await fn(`http://127.0.0.1:${srv.address().port}/`);
@@ -333,4 +333,36 @@ test("import_url serialises the page with html-figma and sends it to import_html
     assert.ok(Array.isArray(sent.layers.children) && sent.layers.children.length >= 1, JSON.stringify(sent.layers).slice(0, 400));
     assert.equal(body.data.receivedType, sent.layers.type);
   });
+});
+
+// A real run imported every weight as Regular and every gradient as no fill:
+// html-figma 0.3.1 sends neither, hence patches/html-figma@0.3.1.patch.
+const STYLED_PAGE = `<!doctype html><html><head><style>html,body{margin:0}
+  #card{width:120px;height:90px;position:relative}
+  #photo{height:40px;background:rgb(0,0,0) linear-gradient(90deg, rgb(253, 186, 116), rgb(249, 115, 22))}
+  #odd{height:10px;background-image:conic-gradient(red, blue)}
+  b{font-weight:600} i{font-style:italic}</style></head>
+  <body><div id="card"><div id="photo"></div><div id="odd"></div><p style="margin:0"><b>Bold</b> <i>slanted</i></p></div></body></html>`;
+
+test("import_url sends text weight and italics, turns gradients into paints, and notes what it skipped", { skip: !playwrightAvailable && "Playwright not available", timeout: 90_000 }, async () => {
+  await withPageServer(async (url) => {
+    const { body } = await rpc("import_url", { url, selector: "#card", viewport: { width: 400, height: 300 } });
+    assert.equal(body.error, undefined, body.error);
+    const all = [];
+    const walk = (layer) => {
+      all.push(layer);
+      (layer.children ?? []).forEach(walk);
+    };
+    walk(seen.import_html_layers.params.layers);
+    assert.equal(all.some((l) => "cssBackgroundImage" in l), false, "the raw CSS stays in the browser");
+    const bold = all.find((l) => l.type === "TEXT" && l.characters === "Bold");
+    const slanted = all.find((l) => l.type === "TEXT" && l.characters === "slanted");
+    assert.equal(bold?.fontWeight, 600, JSON.stringify(bold));
+    assert.equal(slanted?.fontStyle, "italic", JSON.stringify(slanted));
+    const photo = all.find((l) => l.height === 40 && Array.isArray(l.fills) && l.fills.length === 2);
+    assert.ok(photo, JSON.stringify(all.map((l) => [l.type, l.height, l.fills?.map((f) => f.type)])));
+    assert.deepEqual(photo.fills.map((f) => f.type), ["SOLID", "GRADIENT_LINEAR"]);
+    assert.equal(body.data.notes?.length, 1, JSON.stringify(body.data));
+    assert.match(body.data.notes[0], /conic-gradient/);
+  }, STYLED_PAGE);
 });

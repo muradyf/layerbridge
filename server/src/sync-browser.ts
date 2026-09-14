@@ -127,6 +127,6 @@ export const serializeUrl = (url: URL, viewport: Viewport, selector?: string) =>
     return page.evaluate(
       (sel) => (window as unknown as { __figmaBridgeHtmlToFigma: (s: string | null) => Promise<unknown> }).__figmaBridgeHtmlToFigma(sel),
       selector ?? null
-    ) as Promise<Record<string, unknown> | null>;
+    ) as Promise<{ layers: Record<string, unknown> | null; notes: string[] }>;
   });
 };
