@@ -3,7 +3,7 @@
   "configVersion": 0,
   "workspaces": {
     "": {
-      "name": "figma-bridge-ours",
+      "name": "layerbridge",
       "dependencies": {
         "@modelcontextprotocol/sdk": "^1.26.0",
         "html-figma": "0.3.1",
