@@ -40,7 +40,7 @@ test("setup --no-copy prints every client's config and the plugin step", () => {
   const r = cli("setup", "--no-copy");
   assert.equal(r.status, 0, r.stderr);
   for (const title of ["Claude Code", "Claude Desktop", "Cursor", "VS Code", "Windsurf", "Codex"]) assert.match(r.stdout, new RegExp(title));
-  assert.match(r.stdout, /claude mcp add --transport stdio --scope user figma-bridge -- npx -y figma-bridge-ours@latest/);
+  assert.match(r.stdout, /claude mcp add --transport stdio --scope user layerbridge -- npx -y layerbridge@latest/);
   assert.match(r.stdout, /Import plugin from manifest/);
 });
 
@@ -48,7 +48,7 @@ test("setup --client and --port narrow and adjust the output", () => {
   const r = cli("setup", "--no-copy", "--client", "codex", "--port", "1997");
   assert.equal(r.status, 0, r.stderr);
   assert.doesNotMatch(r.stdout, /Cursor/);
-  assert.match(r.stdout, /\[mcp_servers\.figma-bridge\.env\]\n +FIGMA_BRIDGE_PORT = "1997"/);
+  assert.match(r.stdout, /\[mcp_servers\.layerbridge\.env\]\n +FIGMA_BRIDGE_PORT = "1997"/);
   assert.doesNotMatch(r.stdout, / +\n/, "no trailing spaces in pasted snippets");
 });
 
@@ -80,15 +80,15 @@ test("setup --write asks outside a terminal, then writes with --yes and backs up
 
     let r = run();
     assert.equal(r.status, 1);
-    assert.match(r.stdout, /\+     "figma-bridge": \{/);
+    assert.match(r.stdout, /\+     "layerbridge": \{/);
     assert.match(r.stderr, /--yes/);
-    assert.equal(JSON.parse(readFileSync(file, "utf8")).mcpServers["figma-bridge"], undefined);
+    assert.equal(JSON.parse(readFileSync(file, "utf8")).mcpServers["layerbridge"], undefined);
 
     r = run("--yes");
     assert.equal(r.status, 0, r.stderr);
     const written = JSON.parse(readFileSync(file, "utf8"));
     assert.equal(written.mcpServers.other.command, "x");
-    assert.equal(written.mcpServers["figma-bridge"].command, "npx");
+    assert.equal(written.mcpServers["layerbridge"].command, "npx");
     assert.equal(readdirSync(path.dirname(file)).filter((f) => f.startsWith("mcp.json.bak-")).length, 1);
 
     r = run("--yes");
@@ -107,10 +107,10 @@ test("mergeServerConfig keeps other servers and refuses what it cannot parse", a
   assert.equal(changed, true);
   assert.equal(parsed.theme, "dark");
   assert.deepEqual(parsed.mcpServers.other, { command: "x" });
-  assert.deepEqual(parsed.mcpServers["figma-bridge"], { command: "npx", args: ["-y", "figma-bridge-ours@latest"] });
+  assert.deepEqual(parsed.mcpServers["layerbridge"], { command: "npx", args: ["-y", "layerbridge@latest"] });
 
   assert.equal(mergeServerConfig(after, serverEntry()).changed, false);
-  assert.deepEqual(JSON.parse(mergeServerConfig(undefined, serverEntry(1996)).after).mcpServers["figma-bridge"].env, { FIGMA_BRIDGE_PORT: "1996" });
+  assert.deepEqual(JSON.parse(mergeServerConfig(undefined, serverEntry(1996)).after).mcpServers["layerbridge"].env, { FIGMA_BRIDGE_PORT: "1996" });
   assert.throws(() => mergeServerConfig("{ // comment\n}", serverEntry()), /not plain JSON/);
   assert.throws(() => mergeServerConfig("[]", serverEntry()), /not a JSON object/);
   assert.throws(() => mergeServerConfig('{"mcpServers": []}', serverEntry()), /not an object/);
@@ -145,7 +145,7 @@ test("config paths follow each client's documented location", async () => {
   assert.equal(configPath("claude-desktop", "darwin", {}, home), path.join(home, "Library", "Application Support", "Claude", "claude_desktop_config.json"));
   assert.equal(configPath("claude-desktop", "win32", { APPDATA: "R" }, home), path.join("R", "Claude", "claude_desktop_config.json"));
   assert.equal(configPath("claude-desktop", "linux", {}, home), undefined);
-  assert.equal(userDataDir("linux", { XDG_DATA_HOME: "D" }, home), path.join("D", "figma-bridge"));
+  assert.equal(userDataDir("linux", { XDG_DATA_HOME: "D" }, home), path.join("D", "layerbridge"));
 });
 
 test("installPlugin copies the plugin and detects a stale copy", async () => {
@@ -201,7 +201,7 @@ test("server.json, the npm package, the MCPB manifest and the Claude plugin agre
 
   // Claude Code plugin + marketplace
   assert.match(plugin.name, /^[a-z0-9]+(-[a-z0-9]+)*$/);
-  assert.deepEqual(plugin.mcpServers["figma-bridge"].args, ["-y", `${pkg.name}@latest`]);
+  assert.deepEqual(plugin.mcpServers["layerbridge"].args, ["-y", `${pkg.name}@latest`]);
   assert.equal(marketplace.plugins[0].name, plugin.name);
   assert.equal(marketplace.plugins[0].source, "./");
 });
@@ -254,7 +254,7 @@ test("prompts are listed with arguments and render their workflows", async () =>
     const audit = await client.getPrompt({ name: "audit-design", arguments: {} });
     assert.match(audit.messages[0].content.text, /dryRun: true/);
     const trouble = await client.getPrompt({ name: "troubleshoot", arguments: {} });
-    assert.match(trouble.messages[0].content.text, /npx -y figma-bridge-ours@latest doctor/);
+    assert.match(trouble.messages[0].content.text, /npx -y layerbridge@latest doctor/);
 
     assert.match(nodeTarget("4029-12345"), /node 4029:12345/);
     assert.match(nodeTarget(undefined), /current selection/);

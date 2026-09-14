@@ -55,7 +55,7 @@ type ToolResult = {
 };
 
 /**
- * Registers all Figma bridge tools on the given MCP server.
+ * Registers all Layerbridge tools on the given MCP server.
  * @param server - The MCP server instance.
  * @param node - The node coordinator for leader/follower routing.
  * @param port - The port used for follower-to-leader HTTP calls.

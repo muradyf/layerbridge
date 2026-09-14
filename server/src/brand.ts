@@ -8,10 +8,10 @@
  */
 
 /** Human-readable product name. */
-export const DISPLAY_NAME = "Figma Bridge";
+export const DISPLAY_NAME = "Layerbridge";
 
 /** npm package name, also the `bin` and the `npx` argument. */
-export const PACKAGE_NAME = "figma-bridge-ours";
+export const PACKAGE_NAME = "layerbridge";
 
 /**
  * What client configs pass to `npx -y`. `@latest` so npx re-resolves on each
@@ -21,13 +21,13 @@ export const PACKAGE_NAME = "figma-bridge-ours";
 export const NPX_SPEC = `${PACKAGE_NAME}@latest`;
 
 /** Key under which MCP clients register the server (`claude mcp add <key>`). */
-export const SERVER_KEY = "figma-bridge";
+export const SERVER_KEY = "layerbridge";
 
 /** The plugin's name as it appears in Figma's Plugins → Development menu. */
-export const PLUGIN_MENU_NAME = "Figma Bridge (ours)";
+export const PLUGIN_MENU_NAME = "Layerbridge";
 
 /** Folder name for per-user data (the stable copy of the Figma plugin). */
-export const DATA_DIR_NAME = "figma-bridge";
+export const DATA_DIR_NAME = "layerbridge";
 
 /** PLACEHOLDER — GitHub owner/repo is not confirmed. */
-export const REPO_SLUG = "muradyf/REPLACE-ME";
+export const REPO_SLUG = "muradyf/layerbridge";

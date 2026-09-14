@@ -33,7 +33,7 @@ const tokenDir = () => {
   } catch {
     // no user info in some sandboxes
   }
-  return path.join(os.tmpdir(), `figma-bridge-${user}`);
+  return path.join(os.tmpdir(), `layerbridge-${user}`);
 };
 
 export const tokenPath = (port: number) => path.join(tokenDir(), `${port}.token`);

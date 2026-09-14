@@ -123,12 +123,12 @@ ${fileNote(fileKey)}`),
   },
 
   troubleshoot: {
-    title: "Troubleshoot the Figma bridge",
+    title: "Troubleshoot Layerbridge",
     description: "Find out why tools fail or time out: server, plugin connection, port, Dev Mode, stuck exports.",
     argsSchema: { symptom: z.string().optional().describe("What went wrong, e.g. the error message") },
     build: ({ symptom }: Record<string, string | undefined>) =>
       message(`
-The Figma bridge is not working${symptom ? `: ${symptom}` : ""}. Diagnose it.
+Layerbridge is not working${symptom ? `: ${symptom}` : ""}. Diagnose it.
 
 1. Call health. It reports the server version, role (leader or follower), port, connected files and a live test export.
 2. If files is empty: the plugin is not connected. Tell me to open the file in Figma and run Plugins → Development → the bridge plugin, keep its window open, and check the plugin panel's Port matches the server's port. In a browser, Chrome asks for local network access; allow it or use Figma desktop.

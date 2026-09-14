@@ -230,7 +230,7 @@ export class Bridge {
 
     if (this.connections.size === 0) {
       throw new Error(
-        "No plugin connected. In Figma desktop run Plugins → Development → Figma Bridge (ours) in the file you want."
+        "No plugin connected. In Figma desktop run Plugins → Development → Layerbridge in the file you want."
       );
     }
 
