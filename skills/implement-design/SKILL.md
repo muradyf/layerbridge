@@ -1,6 +1,6 @@
 ---
 name: implement-design
-description: Turn a Figma frame, component or selection into code that matches it, using the Figma bridge MCP tools to read structure, tokens and assets. Use when the user shares a Figma link or node ID, or says "implement", "build this design", "match the Figma".
+description: Turn a Figma frame, component or selection into code that matches it, using Layerbridge MCP tools to read structure, tokens and assets. Use when the user shares a Figma link or node ID, or says "implement", "build this design", "match the Figma".
 ---
 
 # Implement a Figma design in code

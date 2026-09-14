@@ -1,6 +1,4 @@
-# Figma Bridge
-
-> **Name pending.** The project will be renamed before its first public release; commands below use the current `figma-bridge` / `figma-bridge-ours` identifiers. See [RENAME.md](RENAME.md).
+# Layerbridge
 
 A Figma plugin and a local MCP server that let AI tools — Claude Code, Claude Desktop, Cursor, VS Code, Windsurf, Codex, anything that speaks the Model Context Protocol — read, edit, check and export the Figma file you have open. Everything runs on your computer: no API rate limits, no Figma token needed.
 
@@ -24,22 +22,22 @@ The plugin can only reach the file it is running in, and only while it is open. 
 Requires Node 20+ and **Figma desktop** (recommended — see [Limits](#limits)).
 
 1. **Add the server to your AI tool**
-   - **Claude Code (server + skills):** `/plugin marketplace add muradyf/REPLACE-ME`, then `/plugin install figma-bridge@figma-bridge-ours`
+   - **Claude Code (server + skills):** `/plugin marketplace add muradyf/layerbridge`, then `/plugin install layerbridge@layerbridge`
    - **Claude Code (server only):**
      ```bash
-     claude mcp add --transport stdio --scope user figma-bridge -- npx -y figma-bridge-ours@latest
+     claude mcp add --transport stdio --scope user layerbridge -- npx -y layerbridge@latest
      ```
    - **Claude Desktop:** open the `.mcpb` file from the latest release.
-   - **Cursor, VS Code, Windsurf, Codex:** `npx -y figma-bridge-ours@latest setup --client <name>` prints the config. Add `--write` to write it for Cursor, Windsurf or Claude Desktop (it shows the diff and keeps a backup).
-2. **Add the plugin to Figma (once):** run `npx -y figma-bridge-ours@latest setup`. It prints a manifest path. In Figma desktop: Plugins → Development → **Import plugin from manifest…** → that path. For FigJam boards and Slides decks, also import the second manifest it prints (Figma won't let one plugin run in both Dev Mode and FigJam). Re-run `setup` after updating.
+   - **Cursor, VS Code, Windsurf, Codex:** `npx -y layerbridge@latest setup --client <name>` prints the config. Add `--write` to write it for Cursor, Windsurf or Claude Desktop (it shows the diff and keeps a backup).
+2. **Add the plugin to Figma (once):** run `npx -y layerbridge@latest setup`. It prints a manifest path. In Figma desktop: Plugins → Development → **Import plugin from manifest…** → that path. For FigJam boards and Slides decks, also import the second manifest it prints (Figma won't let one plugin run in both Dev Mode and FigJam). Re-run `setup` after updating.
 3. **Restart the AI tool.**
 
-Something not working? `npx -y figma-bridge-ours@latest doctor` checks Node, the port, the access token, connected files and the installed plugin.
+Something not working? `npx -y layerbridge@latest doctor` checks Node, the port, the access token, connected files and the installed plugin.
 
 ### Every session
 
 1. Open the Figma file.
-2. Plugins → Development → **Figma Bridge (ours)**. The panel shows a green dot when connected.
+2. Plugins → Development → **Layerbridge**. The panel shows a green dot when connected.
 3. Ask your AI tool to work on the file. Keep the plugin window open; it can be collapsed.
 
 The server also offers prompts — `implement-design`, `audit-design`, `build-in-figma`, `sync-tokens`, `troubleshoot` — and the Claude Code plugin adds skills for the same workflows plus asset export.

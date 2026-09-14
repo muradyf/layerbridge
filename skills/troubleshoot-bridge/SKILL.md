@@ -1,9 +1,9 @@
 ---
 name: troubleshoot-bridge
-description: Diagnose the Figma bridge when its tools fail, time out or see no file — plugin not connected, wrong port, Chrome local network access prompt, Dev Mode read-only, "Taken over" windows, several files connected, stuck exports. Use when a Figma bridge tool errors or the user says Figma is not connecting.
+description: Diagnose Layerbridge when its tools fail, time out or see no file — plugin not connected, wrong port, Chrome local network access prompt, Dev Mode read-only, "Taken over" windows, several files connected, stuck exports. Use when a Layerbridge tool errors or the user says Figma is not connecting.
 ---
 
-# Troubleshoot the Figma bridge
+# Troubleshoot Layerbridge
 
 How it fits together: the AI tool starts the MCP server → the server listens on `127.0.0.1` port 1995 (1995–1999) → the Figma plugin, open in a file, connects to it over a WebSocket. Every tool call needs all three.
 
@@ -28,8 +28,8 @@ It returns the server version, role (leader/follower), port, working directory, 
 
 ## From a terminal
 
-- `npx -y figma-bridge-ours@latest doctor` checks Node, whether the port is held by the bridge or another program, the access token, connected files, and whether the installed Figma plugin copy matches the server. Add `--port 1996` for another port.
-- `npx -y figma-bridge-ours@latest setup` prints the plugin manifest path and client config again.
+- `npx -y layerbridge@latest doctor` checks Node, whether the port is held by the bridge or another program, the access token, connected files, and whether the installed Figma plugin copy matches the server. Add `--port 1996` for another port.
+- `npx -y layerbridge@latest setup` prints the plugin manifest path and client config again.
 
 Several AI-tool windows can share one connection: the first server is the leader and the others forward to it. If the leader's tool is closed, another takes over within a few seconds.
 

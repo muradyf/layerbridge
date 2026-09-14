@@ -1,6 +1,6 @@
 ---
 name: export-assets
-description: Export icons, illustrations, images, screenshots and PDFs from the open Figma file to disk with the Figma bridge tools — bulk SVG/PNG with dedupe and a manifest, original image fills, multi-page PDFs. Use when the user asks to export, download or save assets from Figma.
+description: Export icons, illustrations, images, screenshots and PDFs from the open Figma file to disk with Layerbridge tools — bulk SVG/PNG with dedupe and a manifest, original image fills, multi-page PDFs. Use when the user asks to export, download or save assets from Figma.
 ---
 
 # Export assets from Figma

@@ -17,7 +17,7 @@ Derived from [gethopp/figma-mcp-bridge](https://github.com/gethopp/figma-mcp-bri
 - **FigJam:** read a board; create stickies, shapes with text, connectors, tables and code blocks; draw Mermaid flowcharts with automatic layout.
 - **Figma Slides:** read the deck, add, reorder and delete slides, set transitions, focus a slide.
 - **Second plugin manifest** for FigJam and Slides; tools used in the wrong editor are refused with the editor named. `list_files` reports each file's editor.
-- **One-command install:** the npm package carries the Figma plugin; `npx figma-bridge-ours setup` installs a stable copy and prints config for Claude Code, Claude Desktop, Cursor, VS Code, Windsurf and Codex (`--write` for the three with a JSON config file, with diff and backup).
+- **One-command install:** the npm package carries the Figma plugin; `npx layerbridge setup` installs a stable copy and prints config for Claude Code, Claude Desktop, Cursor, VS Code, Windsurf and Codex (`--write` for the three with a JSON config file, with diff and backup).
 - **`doctor`:** checks Node, the port, the access token, connected files and whether the installed plugin matches the server.
 - **MCP prompts:** `implement-design`, `audit-design`, `build-in-figma`, `sync-tokens`, `troubleshoot`.
 - **Claude Code plugin marketplace** with six skills: implement designs, build in Figma, design-system audit, token sync, asset export, troubleshooting.

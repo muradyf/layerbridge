@@ -1,6 +1,6 @@
 ---
 name: build-in-figma
-description: Create or change screens, frames and components in the open Figma file safely with the Figma bridge tools — look first, plan, build with auto layout and the file's variables, verify with screenshots, confirm before deleting. Use when the user asks to draw, mock up, lay out or edit something in Figma.
+description: Create or change screens, frames and components in the open Figma file safely with Layerbridge tools — look first, plan, build with auto layout and the file's variables, verify with screenshots, confirm before deleting. Use when the user asks to draw, mock up, lay out or edit something in Figma.
 ---
 
 # Build in Figma safely
