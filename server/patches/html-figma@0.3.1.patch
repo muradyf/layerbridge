@@ -6,7 +6,7 @@ index a24892f1b0a2270bae4d154e4e754c2d47e10174..41ce3a2db053600ae0ca8e52ecff293b
      else {
          rectNode.borders = getBorderPin(rect, computedStyle);
      }
-+    // figma-bridge: gradients become paints in browser/css-gradient.js.
++    // layerbridge: gradients become paints in browser/css-gradient.js.
 +    if (computedStyle.backgroundImage &&
 +        computedStyle.backgroundImage.includes('gradient(')) {
 +        rectNode.cssBackgroundImage = computedStyle.backgroundImage;
@@ -22,7 +22,7 @@ index 007a06009dcbbbb337fe4a418e771e27e6375413..332ba240d9bc10083d28bfdb0c3d9429
          // const font = computedStyles.fontFamily.split(/\s*,\s*/);
          textNode.fontFamily = computedStyles.fontFamily;
      }
-+    // figma-bridge: weight and italics; the plugin maps them to a style name.
++    // layerbridge: weight and italics; the plugin maps them to a style name.
 +    const fontWeight = parseInt(computedStyles.fontWeight, 10);
 +    if (isFinite(fontWeight)) {
 +        textNode.fontWeight = fontWeight;

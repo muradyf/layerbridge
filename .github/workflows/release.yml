@@ -121,7 +121,7 @@ jobs:
           cp -r server/dist server/plugin server/package.json mcpb-build/server/
           (cd mcpb-build/server && npm install --omit=dev --ignore-scripts --no-package-lock)
           npx -y "$MCPB_CLI" validate mcpb-build/manifest.json
-          npx -y "$MCPB_CLI" pack mcpb-build "figma-bridge-ours-v$VERSION.mcpb"
+          npx -y "$MCPB_CLI" pack mcpb-build "layerbridge-v$VERSION.mcpb"
 
       # ── Publish ──────────────────────────────────────────────────────
 
@@ -139,4 +139,4 @@ jobs:
           generate_release_notes: true
           files: |
             ${{ github.event.repository.name }}-v${{ inputs.version }}.zip
-            figma-bridge-ours-v${{ inputs.version }}.mcpb
+            layerbridge-v${{ inputs.version }}.mcpb

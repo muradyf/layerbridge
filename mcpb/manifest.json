@@ -1,19 +1,19 @@
 {
   "manifest_version": "0.3",
-  "name": "figma-bridge-ours",
-  "display_name": "Figma Bridge",
+  "name": "layerbridge",
+  "display_name": "Layerbridge",
   "version": "0.2.0",
   "description": "Read, edit and export the Figma file open in the bridge plugin. No REST API, no rate limits.",
-  "long_description": "A local MCP server for the Figma plugin of the same name. Import the plugin from its manifest once (run `npx -y figma-bridge-ours@latest setup` to get the path), open it in the Figma file you want Claude to work on, and keep its window open. Everything stays on your computer.",
+  "long_description": "A local MCP server for the Figma plugin of the same name. Import the plugin from its manifest once (run `npx -y layerbridge@latest setup` to get the path), open it in the Figma file you want Claude to work on, and keep its window open. Everything stays on your computer.",
   "author": {
     "name": "Murad Yousuf",
     "url": "https://github.com/muradyf"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/muradyf/REPLACE-ME"
+    "url": "https://github.com/muradyf/layerbridge"
   },
-  "homepage": "https://github.com/muradyf/REPLACE-ME#readme",
+  "homepage": "https://github.com/muradyf/layerbridge#readme",
   "license": "MIT",
   "keywords": ["figma", "design", "design-tokens", "design-to-code"],
   "server": {

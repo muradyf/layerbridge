@@ -1,11 +1,11 @@
 {
-  "name": "figma-bridge-ours",
+  "name": "layerbridge",
   "version": "0.2.0",
   "description": "Local MCP server and plugin that let AI tools read, edit and export the open Figma file — no REST API, no rate limits",
-  "mcpName": "io.github.muradyf/REPLACE-ME",
+  "mcpName": "io.github.muradyf/layerbridge",
   "type": "module",
   "bin": {
-    "figma-bridge-ours": "dist/index.js"
+    "layerbridge": "dist/index.js"
   },
   "main": "dist/index.js",
   "files": [
@@ -23,12 +23,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/muradyf/REPLACE-ME.git",
+    "url": "git+https://github.com/muradyf/layerbridge.git",
     "directory": "server"
   },
-  "homepage": "https://github.com/muradyf/REPLACE-ME#readme",
+  "homepage": "https://github.com/muradyf/layerbridge#readme",
   "bugs": {
-    "url": "https://github.com/muradyf/REPLACE-ME/issues"
+    "url": "https://github.com/muradyf/layerbridge/issues"
   },
   "keywords": [
     "figma",

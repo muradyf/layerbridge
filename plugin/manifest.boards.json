@@ -1,6 +1,6 @@
 {
-  "name": "Figma Bridge (ours) — FigJam & Slides",
-  "id": "figma-bridge-ours-boards",
+  "name": "Layerbridge — FigJam & Slides",
+  "id": "layerbridge-boards",
   "api": "1.0.0",
   "main": "dist/code.js",
   "ui": "dist/index.html",

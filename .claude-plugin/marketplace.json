@@ -1,13 +1,13 @@
 {
-  "name": "figma-bridge-ours",
-  "description": "The Figma bridge plugin for Claude Code: a local MCP server for the open Figma file plus design-to-code, build, audit, token, export and troubleshooting skills.",
+  "name": "layerbridge",
+  "description": "Layerbridge plugin for Claude Code: a local MCP server for the open Figma file plus design-to-code, build, audit, token, export and troubleshooting skills.",
   "owner": {
     "name": "Murad Yousuf",
     "url": "https://github.com/muradyf"
   },
   "plugins": [
     {
-      "name": "figma-bridge",
+      "name": "layerbridge",
       "source": "./",
       "description": "MCP server and skills for reading, editing and exporting the Figma file open in the bridge plugin.",
       "license": "MIT",

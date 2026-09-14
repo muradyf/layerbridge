@@ -1,20 +1,20 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.muradyf/REPLACE-ME",
-  "title": "Figma Bridge",
+  "name": "io.github.muradyf/layerbridge",
+  "title": "Layerbridge",
   "description": "Read, edit and export the Figma file open in a local plugin. No REST API, no rate limits.",
   "version": "0.2.0",
   "repository": {
-    "url": "https://github.com/muradyf/REPLACE-ME",
+    "url": "https://github.com/muradyf/layerbridge",
     "source": "github",
     "subfolder": "server"
   },
-  "websiteUrl": "https://github.com/muradyf/REPLACE-ME#readme",
+  "websiteUrl": "https://github.com/muradyf/layerbridge#readme",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
-      "identifier": "figma-bridge-ours",
+      "identifier": "layerbridge",
       "version": "0.2.0",
       "transport": {
         "type": "stdio"

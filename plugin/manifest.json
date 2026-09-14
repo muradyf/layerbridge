@@ -1,6 +1,6 @@
 {
-  "name": "Figma Bridge (ours)",
-  "id": "figma-bridge-ours",
+  "name": "Layerbridge",
+  "id": "layerbridge",
   "api": "1.0.0",
   "main": "dist/code.js",
   "ui": "dist/index.html",
