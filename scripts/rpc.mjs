@@ -56,7 +56,9 @@ if (LOCAL_TOOLS.has(tool)) {
     },
   };
   try {
-    out = { data: await runServerSideTool(tool, sender, { ...rest, ...(nodeIds ? { nodeIds } : {}) }) };
+    // nodeId belongs to the tool here (compare_to_image, check_accessibility…);
+    // only the /rpc envelope below lifts it into nodeIds.
+    out = { data: await runServerSideTool(tool, sender, { ...rest, ...(nodeIds ? { nodeIds } : {}), ...(nodeId ? { nodeId } : {}) }) };
   } catch (err) {
     out = { error: err instanceof Error ? err.message : String(err) };
   }
