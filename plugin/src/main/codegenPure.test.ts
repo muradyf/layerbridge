@@ -110,6 +110,9 @@ describe("run_script result", () => {
       n: "NaN",
     });
   });
+  test("dates become ISO strings, as JSON.stringify would write them (a real run returned {})", () => {
+    expect(toPlainJson({ d: new Date(0), bad: new Date("nope") })).toEqual({ d: "1970-01-01T00:00:00.000Z", bad: "Invalid Date" });
+  });
   test("shared references are not treated as cycles", () => {
     const shared = { x: 1 };
     expect(toPlainJson([shared, shared])).toEqual([{ x: 1 }, { x: 1 }]);

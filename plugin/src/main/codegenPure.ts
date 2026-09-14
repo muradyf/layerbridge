@@ -173,6 +173,8 @@ export const toPlainJson = (value: unknown, maxDepth = 12): unknown => {
     if (typeof v === "function") return "[function]";
     if (v instanceof Error) return { error: v.message };
     if (v instanceof Uint8Array) return { bytes: v.length };
+    // A Date has no own keys, so the object walk below would return {}.
+    if (v instanceof Date) return Number.isNaN(v.getTime()) ? "Invalid Date" : v.toISOString();
     if (typeof v !== "object") return String(v);
     const obj = v as Record<string, unknown>;
     try {
