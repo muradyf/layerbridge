@@ -77,3 +77,27 @@ export const tableCells = (rows: number, columns: number, cells?: string[][]): s
 };
 
 export const clip = (text: string, max: number): string => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
+
+/** FigJam's own text font, for a label that has none yet. */
+export const DEFAULT_LABEL_FONT = { family: "Inter", style: "Medium" } as const;
+
+/**
+ * The font to load before writing a label. A new connector's label reports
+ * { family: "" }, which loadFontAsync refuses, so it gets FigJam's font.
+ */
+export const labelFont = (font: { family: string; style: string }): { family: string; style: string } =>
+  font.family ? font : DEFAULT_LABEL_FONT;
+
+type TreeNode<T> = { type: string; children?: readonly T[] };
+
+/**
+ * The deck's rows of slides, read from the page's SLIDE_GRID → SLIDE_ROW →
+ * SLIDE layers. Null when the page has no slide grid.
+ */
+export const slideRowsOf = <T extends TreeNode<T>>(page: TreeNode<T>): T[][] | null => {
+  const grid = page.children?.find((node) => node.type === "SLIDE_GRID");
+  if (!grid) return null;
+  return (grid.children ?? [])
+    .filter((row) => row.type === "SLIDE_ROW")
+    .map((row) => (row.children ?? []).filter((node) => node.type === "SLIDE"));
+};

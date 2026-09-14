@@ -6,13 +6,20 @@
  *
  * Every tool refuses to run outside Figma Slides (see ./editors).
  */
-import { validateSlideGrid, clip } from "./boardsPure";
+import { validateSlideGrid, clip, slideRowsOf } from "./boardsPure";
 import { SLIDES_TOOLS, editorRefusal } from "./editors";
 import { arr, need, num, ok, requireEditor, str, type Request, type Response } from "./features";
 import { resolveNode } from "./robust";
 
-/** getSlideGrid is deprecated in favour of getCanvasGrid; use whichever this Figma has. */
+/**
+ * The deck as rows of slides, read from the layers themselves. In a real run
+ * getCanvasGrid kept returning the one-slide deck after create_slide had added
+ * a slide to that row and a new row under it (both visible to get_nodes), so
+ * the API grid is only the fallback. getSlideGrid is its deprecated name.
+ */
 const slideGrid = (): SlideNode[][] => {
+  const fromLayers = slideRowsOf(figma.currentPage as unknown as { type: string; children: readonly SceneNode[] });
+  if (fromLayers) return fromLayers as SlideNode[][];
   const grid: SceneNode[][] =
     typeof figma.getCanvasGrid === "function" ? figma.getCanvasGrid() : figma.getSlideGrid();
   return grid.map((row) => row.filter((node): node is SlideNode => node.type === "SLIDE"));

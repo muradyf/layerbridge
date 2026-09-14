@@ -9,7 +9,7 @@
 import { layoutFlowchart } from "./diagramLayout";
 import { FIGJAM_TOOLS, SLIDES_TOOLS, editorRefusal } from "./editors";
 import { arr, bool, need, num, ok, parentOf, requireEditor, solidPaint, str, toHex, type Request, type Response } from "./features";
-import { clip, nearestColorName, resolvePaletteColor, tableCells } from "./boardsPure";
+import { clip, labelFont, nearestColorName, resolvePaletteColor, tableCells } from "./boardsPure";
 import { parseMermaid, type Direction, type EdgeHead, type NodeShape } from "./mermaid";
 import { postProgress, resolveSceneNode, withTimeout, yieldToFigma } from "./robust";
 import { handleSlidesRequest } from "./slides";
@@ -18,6 +18,8 @@ const MAX_DIAGRAM_NODES = 300;
 const MAX_DIAGRAM_EDGES = 600;
 
 type FontCache = Set<string>;
+
+const CODE_BLOCK_FONT: FontName = { family: "Source Code Pro", style: "Medium" };
 
 const figjamPalette = (): Record<string, string> => {
   try {
@@ -45,8 +47,12 @@ const loadFont = async (font: FontName, cache: FontCache) => {
 
 /** Sets the text inside a sticky, shape, connector label or table cell. */
 const setText = async (layer: TextSublayerNode, text: string, cache: FontCache) => {
-  if (layer.fontName !== figma.mixed) await loadFont(layer.fontName as FontName, cache);
-  else for (const font of layer.getRangeAllFontNames(0, layer.characters.length)) await loadFont(font, cache);
+  if (layer.fontName !== figma.mixed) {
+    const current = layer.fontName as FontName;
+    const font = labelFont(current);
+    await loadFont(font, cache);
+    if (font !== current) layer.fontName = font;
+  } else for (const font of layer.getRangeAllFontNames(0, layer.characters.length)) await loadFont(font, cache);
   layer.characters = text;
 };
 
@@ -504,6 +510,9 @@ export const handleBoardsRequest = async (request: Request): Promise<Response | 
       const code = str(p.code);
       if (code === undefined) throw new Error("code is required");
       const block = await creating(figma.createCodeBlock(), async (node) => {
+        // Code blocks expose no fontName; writing code needs this one loaded
+        // ("Cannot write to node with unloaded font" otherwise).
+        await loadFont(CODE_BLOCK_FONT, fonts);
         node.code = code;
         if (str(p.language)) node.codeLanguage = str(p.language) as CodeBlockNode["codeLanguage"];
         await place(node, p);

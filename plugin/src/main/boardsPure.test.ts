@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { clip, nearestColorName, resolvePaletteColor, tableCells, validateSlideGrid } from "./boardsPure";
+import { DEFAULT_LABEL_FONT, clip, labelFont, nearestColorName, resolvePaletteColor, slideRowsOf, tableCells, validateSlideGrid } from "./boardsPure";
 
 const palette = { gray: "#E6E6E6", yellow: "#FFEC78", lightGray: "#F5F5F5", red: "#FFAFA3" };
 
@@ -56,4 +56,36 @@ describe("tableCells", () => {
 test("clip", () => {
   expect(clip("hello", 10)).toBe("hello");
   expect(clip("hello world", 6)).toBe("hello…");
+});
+
+test("labelFont: a new connector's empty font becomes FigJam's; a real font is kept", () => {
+  expect(labelFont({ family: "", style: "" })).toEqual(DEFAULT_LABEL_FONT);
+  const kept = { family: "Roboto", style: "Bold" };
+  expect(labelFont(kept)).toBe(kept);
+});
+
+describe("slideRowsOf", () => {
+  type N = { type: string; id?: string; children?: N[] };
+  const slide = (id: string): N => ({ type: "SLIDE", id });
+
+  test("reads rows and slides in layer order, skipping anything that is not a slide", () => {
+    const page: N = {
+      type: "PAGE",
+      children: [
+        { type: "FRAME", id: "stray" },
+        {
+          type: "SLIDE_GRID",
+          children: [
+            { type: "SLIDE_ROW", children: [slide("1:42"), slide("1:82"), { type: "TEXT", id: "t" }] },
+            { type: "SLIDE_ROW", children: [slide("1:84")] },
+          ],
+        },
+      ],
+    };
+    expect(slideRowsOf(page)?.map((row) => row.map((s) => s.id))).toEqual([["1:42", "1:82"], ["1:84"]]);
+  });
+
+  test("null without a slide grid, so the caller can fall back to the API", () => {
+    expect(slideRowsOf({ type: "PAGE", children: [{ type: "FRAME" }] })).toBeNull();
+  });
 });
