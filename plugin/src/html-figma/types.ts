@@ -42,6 +42,7 @@ export type LayerNode = Partial<
 export type PlainLayerNode = Partial<LayerNode> & {
   fontFamily?: string;
   fontWeight?: number;
+  fontStyle?: "italic";
 };
 
 export type MetaLayerNode = WithMeta<LayerNode>;

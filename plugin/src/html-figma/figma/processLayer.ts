@@ -76,13 +76,15 @@ export const processLayer = async (
     const text = node as TextNode;
 
     if (layer.fontFamily) {
-      text.fontName = await getMatchingFont(layer.fontFamily, layer.fontWeight);
+      text.fontName = await getMatchingFont(layer.fontFamily, layer.fontWeight, layer.fontStyle === "italic");
 
       delete layer.fontFamily;
     }
     // Consumed above. TextNode.fontWeight is derived from fontName and
-    // read-only, so leaving it here would only make assign() warn.
+    // read-only, and TextNode has no fontStyle, so leaving either here would
+    // only make assign() warn.
     delete layer.fontWeight;
+    delete layer.fontStyle;
 
     assign(text, layer);
     text.resize(layer.width || 1, layer.height || 1);
