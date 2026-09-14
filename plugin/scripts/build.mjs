@@ -13,14 +13,35 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const next = path.join(root, ".dist-next");
 const dist = path.join(root, "dist");
 
-rmSync(next, { recursive: true, force: true });
-try {
-  await build({ configFile: path.join(root, "vite.config.ts"), build: { outDir: next, emptyOutDir: true } });
-  await build({ configFile: path.join(root, "vite.config.main.ts"), build: { outDir: next, emptyOutDir: false } });
+// code.js last: the UI it opens is already in place when Figma picks it up.
+const publish = () => {
   mkdirSync(dist, { recursive: true });
-  // code.js last: the UI it opens is already in place when Figma picks it up.
   const files = readdirSync(next).sort((a, b) => (a === "code.js") - (b === "code.js"));
   for (const file of files) renameSync(path.join(next, file), path.join(dist, file));
-} finally {
-  rmSync(next, { recursive: true, force: true });
+};
+
+const configs = ["vite.config.ts", "vite.config.main.ts"].map((file) => path.join(root, file));
+
+rmSync(next, { recursive: true, force: true });
+
+if (process.argv.includes("--watch")) {
+  // Same rule for `bun run dev`: each rebuild lands in .dist-next and is
+  // renamed across when it finishes. Nothing empties the folder between
+  // rebuilds, or one watcher could delete the other's unpublished file.
+  mkdirSync(next, { recursive: true });
+  for (const configFile of configs) {
+    const watcher = await build({ configFile, build: { outDir: next, emptyOutDir: false, watch: {} } });
+    watcher.on("event", (event) => {
+      if (event.code === "BUNDLE_END") publish();
+      if (event.code === "ERROR") console.error(event.error);
+    });
+  }
+} else {
+  try {
+    await build({ configFile: configs[0], build: { outDir: next, emptyOutDir: true } });
+    await build({ configFile: configs[1], build: { outDir: next, emptyOutDir: false } });
+    publish();
+  } finally {
+    rmSync(next, { recursive: true, force: true });
+  }
 }
