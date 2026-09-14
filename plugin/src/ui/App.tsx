@@ -74,6 +74,10 @@ export default function App() {
   const [collapsed, setCollapsed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [port, setPort] = useState(DEFAULT_PORT);
+  // Don't dial until the saved port has been read. Dialling the default first
+  // put a Slides panel on 1995 for a second before it moved to its saved 1996,
+  // which read as a plugin that connects and immediately drops.
+  const [portKnown, setPortKnown] = useState(false);
   const [status, setStatus] = useState<PluginStatus>({
     fileName: "",
     fileKey: "",
@@ -121,6 +125,7 @@ export default function App() {
 
       if (msg.type === "bridge-port") {
         if (PORTS.includes(msg.port)) setPort(msg.port);
+        setPortKnown(true);
         return;
       }
 
@@ -161,7 +166,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (!status.fileKey) return;
+    if (!status.fileKey || !portKnown) return;
 
     let disposed = false;
 
@@ -257,7 +262,7 @@ export default function App() {
         setOpenPort(null);
       }
     };
-  }, [status.fileKey, status.fileName, status.pluginVersion, status.editorType, attempt, port]);
+  }, [status.fileKey, status.fileName, status.pluginVersion, status.editorType, attempt, port, portKnown]);
 
   const selection =
     status.selectionCount === 1 ? "1 layer" : `${status.selectionCount} layers`;
